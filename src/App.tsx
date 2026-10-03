@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import "./interaction.css";
 import {
   createTrip,
   getStoredSession,
@@ -11,6 +12,7 @@ import {
   subscribeToTripPresence,
   type RyokoSession,
 } from "./lib/ryoko";
+import { resolveInstagramUrl, type InstagramPreview } from "./lib/instagram";
 
 type Day = {
   id?: string;
@@ -62,8 +64,14 @@ export default function App() {
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
   const [active, setActive] = useState(0);
   const [dragged, setDragged] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [linkDrafts, setLinkDrafts] = useState<Record<number, string>>({});
+  const [instagramDay, setInstagramDay] = useState<number | null>(null);
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [instagramPreview, setInstagramPreview] =
+    useState<InstagramPreview | null>(null);
+  const [instagramLoading, setInstagramLoading] = useState(false);
+  const [instagramError, setInstagramError] = useState("");
 
   useEffect(() => {
     if (!session) {
@@ -128,25 +136,49 @@ export default function App() {
         title: field === "title" ? value : next.title,
       }).catch((e) => setError(e.message));
   };
-  const addInstagram = async (index: number) => {
-    const url = linkDrafts[index]?.trim();
-    const day = days[index];
-    if (!session || !day?.id || !url) return;
+  const openInstagram = (index: number) => {
+    setInstagramDay(index);
+    setInstagramUrl(days[index]?.instagramUrl ?? "");
+    setInstagramPreview(null);
+    setInstagramError("");
+  };
+  const previewInstagram = async () => {
+    const value = instagramUrl.trim();
+    if (!/^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\//i.test(value)) {
+      setInstagramError("Paste an Instagram post, Reel, or video URL.");
+      return;
+    }
+    setInstagramLoading(true);
+    setInstagramError("");
+    try {
+      setInstagramPreview(await resolveInstagramUrl(value));
+    } catch (e) {
+      setInstagramError(
+        (e as Error).message || "We couldn't preview that link.",
+      );
+    } finally {
+      setInstagramLoading(false);
+    }
+  };
+  const saveInstagram = async () => {
+    const index = instagramDay;
+    const day = index === null ? undefined : days[index];
+    if (!session || index === null || !day?.id || !instagramPreview) return;
     try {
       await saveItem(session, {
         dayId: day.id,
         kind: "instagram",
-        content: url,
+        content: instagramPreview.url,
         completed: false,
       });
       setDays((current) =>
         current.map((item, i) =>
-          i === index ? { ...item, instagramUrl: url } : item,
+          i === index ? { ...item, instagramUrl: instagramPreview.url } : item,
         ),
       );
-      setLinkDrafts((current) => ({ ...current, [index]: "" }));
+      setInstagramDay(null);
     } catch (e) {
-      setError((e as Error).message);
+      setInstagramError((e as Error).message);
     }
   };
   const addDay = async () => {
@@ -175,6 +207,18 @@ export default function App() {
       return next;
     });
     setDragged(null);
+    setDragOver(null);
+  };
+  const nudgeDay = (index: number, amount: number) => {
+    const target = index + amount;
+    if (target < 0 || target >= days.length) return;
+    setDays((current) => {
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+    setActive(target);
   };
   const create = async () => {
     if (!tripName || !name || !from || !to || !chosen.length)
@@ -314,7 +358,16 @@ export default function App() {
           <div className="heading">
             <div>
               <p className="eyebrow">YOUR ITINERARY</p>
-              {days[active] && <label className="selected-date">Selected date <input type="date" value={days[active].date} onChange={e => updateDay(active, 'date', e.target.value)} /></label>}
+              {days[active] && (
+                <label className="selected-date">
+                  Selected date{" "}
+                  <input
+                    type="date"
+                    value={days[active].date}
+                    onChange={(e) => updateDay(active, "date", e.target.value)}
+                  />
+                </label>
+              )}
               <h2>
                 Let’s make it <em>happen</em>.
               </h2>
@@ -323,19 +376,50 @@ export default function App() {
               ＋
             </button>
           </div>
+          {!!days.length && (
+            <p className="drag-hint">
+              Drag the handle to reorder your days, or use the arrows.
+            </p>
+          )}
           <div className="timeline">
             {days.map((day, index) => (
               <article
                 draggable
-                className={`day ${active === index ? "selected" : ""}`}
+                className={`day ${active === index ? "selected" : ""} ${dragged === index ? "dragging" : ""} ${dragOver === index && dragged !== index ? "drop-target" : ""}`}
                 key={day.id ?? `${day.date}-${index}`}
-                onDragStart={() => setDragged(index)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => moveDay(index)}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", String(index));
+                  setDragged(index);
+                }}
+                onDragEnter={() => setDragOver(index)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(index);
+                }}
+                onDragEnd={() => {
+                  setDragged(null);
+                  setDragOver(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  moveDay(index);
+                }}
                 onClick={() => setActive(index)}
               >
+                {dragOver === index && dragged !== index && (
+                  <div className="drop-indicator">
+                    Drop here to move this day
+                  </div>
+                )}
                 <div className="date">
-                  <input className="date-input" type="date" value={day.date} onChange={e => updateDay(index, 'date', e.target.value)} onClick={e => e.stopPropagation()} />
+                  <input
+                    className="date-input"
+                    type="date"
+                    value={day.date}
+                    onChange={(e) => updateDay(index, "date", e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
                   <b>{day.date.slice(8, 10)}</b>
                   <small>{day.date.slice(5, 7)}</small>
                 </div>
@@ -353,7 +437,37 @@ export default function App() {
                         onClick={(e) => e.stopPropagation()}
                       />
                     </span>
-                    <span className="drag">⠿</span>
+                    <span className="day-actions">
+                      <button
+                        className="move-button drag-handle"
+                        title="Drag to reorder"
+                        aria-label={`Drag day ${index + 1} to reorder`}
+                      >
+                        ⠿
+                      </button>
+                      <button
+                        className="move-button"
+                        title="Move day up"
+                        aria-label="Move day up"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nudgeDay(index, -1);
+                        }}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="move-button"
+                        title="Move day down"
+                        aria-label="Move day down"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nudgeDay(index, 1);
+                        }}
+                      >
+                        ↓
+                      </button>
+                    </span>
                   </div>
                   <input
                     className="inline-input title-input"
@@ -362,10 +476,17 @@ export default function App() {
                     onChange={(e) => updateDay(index, "title", e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <div className="instagram-row">
-                    <input className="inline-input instagram-input" placeholder="Paste an Instagram post or Reel URL" value={linkDrafts[index] ?? day.instagramUrl ?? ''} onChange={e => setLinkDrafts(current => ({ ...current, [index]: e.target.value }))} onClick={e => e.stopPropagation()} />
-                    <button className="save-link" onClick={e => { e.stopPropagation(); void addInstagram(index) }}>Save link</button>
-                  </div>
+                  <button
+                    className="instagram-trigger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openInstagram(index);
+                    }}
+                  >
+                    {day.instagramUrl
+                      ? "View saved Instagram inspiration"
+                      : "＋ Add Instagram post or Reel"}
+                  </button>
                 </div>
               </article>
             ))}
@@ -453,6 +574,77 @@ export default function App() {
               onClick={() => setModal("create")}
             >
               Start a new journey
+            </button>
+          </div>
+        </div>
+      )}
+      {instagramDay !== null && (
+        <div className="backdrop" onClick={() => setInstagramDay(null)}>
+          <div
+            className="modal instagram-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="close" onClick={() => setInstagramDay(null)}>
+              ×
+            </button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">ADD INSTAGRAM INSPIRATION</p>
+            <h2>
+              Preview before <em>saving.</em>
+            </h2>
+            <p className="modal-copy">
+              Paste a public Instagram post or Reel. We’ll check the link and
+              show you how it will appear on this day.
+            </p>
+            <label>
+              Instagram URL
+              <input
+                autoFocus
+                type="url"
+                placeholder="https://www.instagram.com/reel/..."
+                value={instagramUrl}
+                onChange={(e) => {
+                  setInstagramUrl(e.target.value);
+                  setInstagramPreview(null);
+                  setInstagramError("");
+                }}
+              />
+            </label>
+            {instagramError && <p className="form-error">{instagramError}</p>}
+            <button
+              className="secondary full"
+              onClick={() => void previewInstagram()}
+              disabled={instagramLoading}
+            >
+              {instagramLoading ? "Checking link…" : "Preview link"}
+            </button>
+            {instagramPreview && (
+              <div className="instagram-preview">
+                {instagramPreview.thumbnailUrl ? (
+                  <img
+                    src={instagramPreview.thumbnailUrl}
+                    alt="Instagram preview"
+                  />
+                ) : (
+                  <div className="preview-placeholder">◎</div>
+                )}
+                <div>
+                  <b>{instagramPreview.title}</b>
+                  <small>by {instagramPreview.author}</small>
+                  <span>
+                    {instagramPreview.fallback
+                      ? "Link saved with a simple preview"
+                      : "Preview verified"}
+                  </span>
+                </div>
+              </div>
+            )}
+            <button
+              className="primary full"
+              onClick={() => void saveInstagram()}
+              disabled={!instagramPreview}
+            >
+              Save to this day ✦
             </button>
           </div>
         </div>
@@ -621,11 +813,26 @@ export default function App() {
           <div className="modal code-modal">
             <span className="flower">✿</span>
             <p className="eyebrow">YOUR OWNER ACCESS CODE</p>
-            <h2>Keep this <em>safe.</em></h2>
-            <p className="modal-copy">Use this permanent code to rejoin your journey and manage contributors.</p>
+            <h2>
+              Keep this <em>safe.</em>
+            </h2>
+            <p className="modal-copy">
+              Use this permanent code to rejoin your journey and manage
+              contributors.
+            </p>
             <code className="owner-code">{session?.code}</code>
-            <button className="primary full" onClick={() => { void navigator.clipboard?.writeText(session?.code ?? ""); setModal(null) }}>Copy owner code</button>
-            <button className="secondary full" onClick={() => setModal(null)}>I’ve saved it</button>
+            <button
+              className="primary full"
+              onClick={() => {
+                void navigator.clipboard?.writeText(session?.code ?? "");
+                setModal(null);
+              }}
+            >
+              Copy owner code
+            </button>
+            <button className="secondary full" onClick={() => setModal(null)}>
+              I’ve saved it
+            </button>
           </div>
         </div>
       )}

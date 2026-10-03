@@ -1,0 +1,175 @@
+.drag-hint {
+  color: #8d7c78;
+  font-size: 0.78rem;
+  margin: 18px 0 -8px;
+}
+
+.timeline .day {
+  padding-bottom: 44px;
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.timeline .day.dragging {
+  opacity: 0.52;
+  transform: scale(0.985) rotate(0.4deg);
+}
+
+.timeline .day.drop-target .card {
+  border: 2px dashed #d66b73;
+  box-shadow: 0 12px 28px rgba(180, 92, 96, 0.16);
+  transform: translateY(-3px);
+}
+
+.drop-indicator {
+  position: absolute;
+  left: 74px;
+  right: 0;
+  top: -17px;
+  color: #b55762;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card {
+  min-height: 176px;
+  padding: 24px 26px;
+}
+
+.card-top {
+  margin-bottom: 14px;
+}
+
+.day-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.move-button {
+  border: 0;
+  background: transparent;
+  color: #b3a29d;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 5px;
+}
+
+.move-button:hover,
+.move-button:focus-visible {
+  color: #b55762;
+  outline: 2px solid #efc2c4;
+  outline-offset: 1px;
+  border-radius: 5px;
+}
+
+.drag-handle {
+  cursor: grab;
+  font-size: 1.2rem;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.instagram-trigger {
+  width: 100%;
+  border: 1px dashed #d7c8c2;
+  border-radius: 8px;
+  background: #fffaf7;
+  color: #806f6a;
+  cursor: pointer;
+  font: inherit;
+  margin-top: 14px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.instagram-trigger:hover,
+.instagram-trigger:focus-visible {
+  border-color: #c66d76;
+  color: #a24e59;
+  outline: none;
+}
+
+.instagram-modal {
+  max-width: 460px;
+}
+
+.instagram-preview {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: #fffaf7;
+  border: 1px solid #e8d9d2;
+  border-radius: 12px;
+  margin: 16px 0;
+  padding: 12px;
+}
+
+.instagram-preview img,
+.preview-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.preview-placeholder {
+  display: grid;
+  place-items: center;
+  background: #f0d7d2;
+  color: #ad5e63;
+  font-size: 2rem;
+}
+
+.instagram-preview b,
+.instagram-preview small,
+.instagram-preview span {
+  display: block;
+}
+
+.instagram-preview small,
+.instagram-preview span {
+  color: #927f79;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.form-error {
+  color: #b44752;
+  font-size: 0.82rem;
+  margin: 8px 0;
+}
+
+@media (max-width: 560px) {
+  .drag-hint {
+    margin-top: 14px;
+  }
+
+  .timeline .day {
+    padding-bottom: 52px;
+  }
+
+  .card {
+    min-height: 196px;
+    padding: 21px 18px;
+  }
+
+  .drop-indicator {
+    left: 66px;
+    top: -20px;
+  }
+
+  .day-actions {
+    gap: 1px;
+  }
+
+  .move-button {
+    padding: 7px 4px;
+  }
+}
