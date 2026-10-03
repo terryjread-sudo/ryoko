@@ -45,6 +45,40 @@ create table public.ryoko_day_items (
   created_at timestamptz not null default now()
 );
 
+create table public.ryoko_destinations (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references public.ryoko_trips(id) on delete cascade,
+  name text not null,
+  latitude double precision,
+  longitude double precision,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table public.ryoko_activities (
+  id uuid primary key default gen_random_uuid(),
+  day_id uuid not null references public.ryoko_trip_days(id) on delete cascade,
+  destination_id uuid references public.ryoko_destinations(id) on delete set null,
+  title text not null,
+  category text not null default 'custom' check (category in ('attraction','food','shopping','transport','stay','custom')),
+  starts_at timestamptz,
+  duration_minutes integer,
+  notes text,
+  booking_url text,
+  instagram_url text,
+  completed boolean not null default false,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table public.ryoko_comments (
+  id uuid primary key default gen_random_uuid(),
+  activity_id uuid not null references public.ryoko_activities(id) on delete cascade,
+  member_id uuid references public.ryoko_trip_members(id) on delete set null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
 create table public.ryoko_audit_events (
   id bigint generated always as identity primary key,
   trip_id uuid not null references public.ryoko_trips(id) on delete cascade,
@@ -59,6 +93,9 @@ alter table public.ryoko_trip_members enable row level security;
 alter table public.ryoko_trip_days enable row level security;
 alter table public.ryoko_day_items enable row level security;
 alter table public.ryoko_audit_events enable row level security;
+alter table public.ryoko_destinations enable row level security;
+alter table public.ryoko_activities enable row level security;
+alter table public.ryoko_comments enable row level security;
 
 -- Code validation is intentionally handled by server-side RPC/Edge Functions.
 -- Do not expose raw access codes or hashes through public policies.

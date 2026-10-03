@@ -13,6 +13,8 @@ Copy `.env.example` to `.env.local` when connecting the Supabase project. The pu
 
 Instagram URLs resolve through `src/lib/instagram.ts` with a graceful fallback when Instagram blocks oEmbed requests.
 
+The planner schema also includes structured destinations, activities, and comments so sub-locations, category/time planning, bookings, map pins, and collaboration notes can be added without changing the core trip model.
+
 ## Supabase foundation
 
 Run [`supabase/schema.sql`](supabase/schema.sql) in the Kaishi Quest Supabase SQL editor. The tables use the `ryoko_` prefix to stay isolated from Kaishi Quest. The live project also contains security-definer RPCs for trip creation, code joining, day reads, contributor issuing, and revocation. Direct table access is denied by RLS; the frontend uses those RPCs and Supabase Realtime presence channels.
