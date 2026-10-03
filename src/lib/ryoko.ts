@@ -25,9 +25,10 @@ export async function listDays(session: RyokoSession) {
 }
 
 export function subscribeToTripPresence(session: RyokoSession, onSync: (members: unknown[]) => void) {
-  if (!supabase) return () => undefined
-  const channel = supabase.channel(`ryoko:${session.tripId}`, { config: { presence: { key: session.code } } })
+  const client = supabase
+  if (!client) return () => undefined
+  const channel = client.channel(`ryoko:${session.tripId}`, { config: { presence: { key: session.code } } })
   channel.on('presence', { event: 'sync' }, () => onSync(Object.values(channel.presenceState()).flat()))
     .subscribe(async status => { if (status === 'SUBSCRIBED') await channel.track({ name: session.displayName, color: session.color, role: session.role }) })
-  return () => { void supabase.removeChannel(channel) }
+  return () => { void client.removeChannel(channel) }
 }
