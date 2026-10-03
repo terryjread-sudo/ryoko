@@ -22,6 +22,7 @@ type Day = {
   title: string;
   items: string[];
   instagramUrl?: string;
+  subLocation?: string;
 };
 const destinations = [
   "Tokyo",
@@ -72,6 +73,7 @@ export default function App() {
     useState<InstagramPreview | null>(null);
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState("");
+  const [useInstagramLocation, setUseInstagramLocation] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -141,6 +143,7 @@ export default function App() {
     setInstagramUrl(days[index]?.instagramUrl ?? "");
     setInstagramPreview(null);
     setInstagramError("");
+    setUseInstagramLocation(false);
   };
   const previewInstagram = async () => {
     const value = instagramUrl.trim();
@@ -165,15 +168,30 @@ export default function App() {
     const day = index === null ? undefined : days[index];
     if (!session || index === null || !day?.id || !instagramPreview) return;
     try {
+      const metadata = JSON.stringify({
+        url: instagramPreview.url,
+        title: instagramPreview.title,
+        description: instagramPreview.description,
+        author: instagramPreview.author,
+        location: instagramPreview.location,
+      });
       await saveItem(session, {
         dayId: day.id,
         kind: "instagram",
-        content: instagramPreview.url,
+        content: metadata,
         completed: false,
       });
       setDays((current) =>
         current.map((item, i) =>
-          i === index ? { ...item, instagramUrl: instagramPreview.url } : item,
+          i === index
+            ? {
+                ...item,
+                instagramUrl: instagramPreview.url,
+                subLocation: useInstagramLocation
+                  ? instagramPreview.location
+                  : item.subLocation,
+              }
+            : item,
         ),
       );
       setInstagramDay(null);
@@ -476,6 +494,9 @@ export default function App() {
                     onChange={(e) => updateDay(index, "title", e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                   />
+                  {day.subLocation && (
+                    <p className="sub-location">⌖ {day.subLocation}</p>
+                  )}
                   <button
                     className="instagram-trigger"
                     onClick={(e) => {
@@ -631,6 +652,9 @@ export default function App() {
                 <div>
                   <b>{instagramPreview.title}</b>
                   <small>by {instagramPreview.author}</small>
+                  {instagramPreview.description && (
+                    <p>{instagramPreview.description}</p>
+                  )}
                   <span>
                     {instagramPreview.fallback
                       ? "Link saved with a simple preview"
@@ -638,6 +662,16 @@ export default function App() {
                   </span>
                 </div>
               </div>
+            )}
+            {instagramPreview?.location && (
+              <label className="location-choice">
+                <input
+                  type="checkbox"
+                  checked={useInstagramLocation}
+                  onChange={(e) => setUseInstagramLocation(e.target.checked)}
+                />
+                Use “{instagramPreview.location}” as this day’s sub-location
+              </label>
             )}
             <button
               className="primary full"

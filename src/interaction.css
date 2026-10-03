@@ -133,6 +133,32 @@
   display: block;
 }
 
+.instagram-preview p {
+  color: #6f6264;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: 7px 0 0;
+}
+
+.location-choice {
+  align-items: center;
+  color: #665b69;
+  display: flex;
+  font-size: 0.82rem;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.location-choice input {
+  accent-color: #b55762;
+}
+
+.sub-location {
+  color: #a35b61;
+  font-size: 0.78rem;
+  margin: 8px 0 0;
+}
+
 .instagram-preview small,
 .instagram-preview span {
   color: #927f79;
