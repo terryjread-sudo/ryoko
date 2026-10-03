@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 export type InstagramPreview = {
   url: string;
   title: string;
@@ -18,25 +20,19 @@ export async function resolveInstagramUrl(
     fallback: true,
   };
   try {
-    const response = await fetch(
-      `https://www.instagram.com/oembed/?url=${encodeURIComponent(url)}`,
+    if (!supabase) return fallback;
+    const { data, error } = await supabase.functions.invoke(
+      "instagram-metadata",
+      { body: { url } },
     );
-    if (!response.ok) return fallback;
-    const data = (await response.json()) as {
-      title?: string;
-      description?: string;
-      author_name?: string;
-      location?: string;
-      location_name?: string;
-      thumbnail_url?: string;
-    };
+    if (error || !data?.ok) return fallback;
     return {
       url,
       title: data.title || fallback.title,
       description: data.description,
-      author: data.author_name || fallback.author,
-      location: data.location || data.location_name,
-      thumbnailUrl: data.thumbnail_url,
+      author: data.author || fallback.author,
+      location: data.location,
+      thumbnailUrl: data.thumbnailUrl,
       fallback: false,
     };
   } catch {

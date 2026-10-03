@@ -11,7 +11,7 @@ npm run dev
 
 Copy `.env.example` to `.env.local` when connecting the Supabase project. The public frontend should only receive the Supabase URL and anon key; never commit service-role keys or raw contributor codes.
 
-Instagram URLs resolve through `src/lib/instagram.ts` with a graceful fallback when Instagram blocks oEmbed requests.
+Instagram URLs resolve through the `instagram-metadata` Supabase Edge Function, which fetches oEmbed and page metadata server-side. Deploy it from the repository root with `supabase functions deploy instagram-metadata` after linking the Supabase project (`supabase link --project-ref <project-ref>`). The browser still has a graceful fallback if Instagram rate-limits the function.
 
 The planner schema also includes structured destinations, activities, and comments so sub-locations, category/time planning, bookings, map pins, and collaboration notes can be added without changing the core trip model.
 
