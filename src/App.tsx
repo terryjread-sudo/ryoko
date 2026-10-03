@@ -9,7 +9,7 @@ const initialDays: Day[] = [
 ]
 
 export default function App() {
-  const [days, setDays] = useState(initialDays); const [active, setActive] = useState(0); const [invite, setInvite] = useState(false); const [role, setRole] = useState('Editor'); const [checked, setChecked] = useState<Record<string, boolean>>({ '0-0': true }); const [copied, setCopied] = useState(false)
+  const [days] = useState(initialDays); const [active, setActive] = useState(0); const [invite, setInvite] = useState(false); const [role, setRole] = useState('Editor'); const [checked, setChecked] = useState<Record<string, boolean>>({ '0-0': true }); const [copied, setCopied] = useState(false)
   const toggle = (key: string) => setChecked(value => ({ ...value, [key]: !value[key] }))
   const copy = () => { navigator.clipboard?.writeText('SAKURA-8Q'); setCopied(true); setTimeout(() => setCopied(false), 1500) }
   return <main className="shell">
