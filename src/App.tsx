@@ -51,7 +51,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(0);
   const [modal, setModal] = useState<
-    "start" | "join" | "create" | "invite" | null
+    "start" | "join" | "create" | "invite" | "code" | null
   >(() => (getStoredSession() ? null : "start"));
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -183,7 +183,6 @@ export default function App() {
       const created = await createTrip(tripName, from, to, name);
       setSession(created);
       setJourneyName(tripName);
-      setModal(null);
       for (const city of chosen) {
         const saved = await saveDay(created, { date: from, city, title: "" });
         setDays((current) => [
@@ -198,6 +197,7 @@ export default function App() {
           },
         ]);
       }
+      setModal("code");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -613,6 +613,19 @@ export default function App() {
             >
               Generate access code ✦
             </button>
+          </div>
+        </div>
+      )}
+      {modal === "code" && (
+        <div className="backdrop">
+          <div className="modal code-modal">
+            <span className="flower">✿</span>
+            <p className="eyebrow">YOUR OWNER ACCESS CODE</p>
+            <h2>Keep this <em>safe.</em></h2>
+            <p className="modal-copy">Use this permanent code to rejoin your journey and manage contributors.</p>
+            <code className="owner-code">{session?.code}</code>
+            <button className="primary full" onClick={() => { void navigator.clipboard?.writeText(session?.code ?? ""); setModal(null) }}>Copy owner code</button>
+            <button className="secondary full" onClick={() => setModal(null)}>I’ve saved it</button>
           </div>
         </div>
       )}
