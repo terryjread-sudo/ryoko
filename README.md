@@ -13,7 +13,7 @@ Copy `.env.example` to `.env.local` when connecting the Supabase project. The pu
 
 ## Supabase foundation
 
-Run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor. Code authentication, access-code hashing, revocation, realtime subscriptions, and presence should be implemented through server-side RPCs or Edge Functions before production data is enabled.
+Run [`supabase/schema.sql`](supabase/schema.sql) in the Kaishi Quest Supabase SQL editor. The tables use the `ryoko_` prefix to stay isolated from Kaishi Quest. Code authentication, access-code hashing, revocation, realtime subscriptions, and presence should be implemented through server-side RPCs or Edge Functions before production data is enabled.
 
 ## Deployment
 
