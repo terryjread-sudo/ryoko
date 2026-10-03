@@ -24,6 +24,31 @@ export async function listDays(session: RyokoSession) {
   if (error) throw error; return data ?? []
 }
 
+export async function saveDay(session: RyokoSession, day: { id?: string; date: string; city: string; title: string; notes?: string }) {
+  if (!supabase) return null
+  const { data, error } = await supabase.rpc('ryoko_save_day', { p_code: session.code, p_day: day.id ?? null, p_trip: session.tripId, p_date: day.date, p_city: day.city, p_title: day.title, p_notes: day.notes ?? null })
+  if (error) throw error
+  return data
+}
+
+export async function saveItem(session: RyokoSession, item: { id?: string; dayId: string; kind: string; content: string; completed: boolean }) {
+  if (!supabase) return null
+  const { data, error } = await supabase.rpc('ryoko_save_item', { p_code: session.code, p_item: item.id ?? null, p_day: item.dayId, p_kind: item.kind, p_content: item.content, p_completed: item.completed })
+  if (error) throw error
+  return data
+}
+
+export async function issueMember(session: RyokoSession, name: string, role: 'editor' | 'viewer', color: string) {
+  if (!supabase || session.role !== 'owner') throw new Error('Owner access required')
+  const { data, error } = await supabase.rpc('ryoko_issue_member', { p_owner_code: session.code, p_trip: session.tripId, p_name: name, p_role: role, p_color: color })
+  if (error) throw error
+  return data
+}
+
+export function getStoredSession(): RyokoSession | null {
+  try { return JSON.parse(localStorage.getItem('ryoko_session') ?? 'null') as RyokoSession | null } catch { return null }
+}
+
 export function subscribeToTripPresence(session: RyokoSession, onSync: (members: unknown[]) => void) {
   const client = supabase
   if (!client) return () => undefined
