@@ -13,7 +13,7 @@ Copy `.env.example` to `.env.local` when connecting the Supabase project. The pu
 
 ## Supabase foundation
 
-Run [`supabase/schema.sql`](supabase/schema.sql) in the Kaishi Quest Supabase SQL editor. The tables use the `ryoko_` prefix to stay isolated from Kaishi Quest. Code authentication, access-code hashing, revocation, realtime subscriptions, and presence should be implemented through server-side RPCs or Edge Functions before production data is enabled.
+Run [`supabase/schema.sql`](supabase/schema.sql) in the Kaishi Quest Supabase SQL editor. The tables use the `ryoko_` prefix to stay isolated from Kaishi Quest. The live project also contains security-definer RPCs for trip creation, code joining, day reads, contributor issuing, and revocation. Direct table access is denied by RLS; the frontend uses those RPCs and Supabase Realtime presence channels.
 
 ## Deployment
 
