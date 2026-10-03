@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
+import { checkRyokoConnection } from './lib/supabase'
 
 type Day = { date: string; city: string; emoji: string; title: string; items: string[] }
 const initialDays: Day[] = [
@@ -10,6 +11,7 @@ const initialDays: Day[] = [
 
 export default function App() {
   const [days] = useState(initialDays); const [active, setActive] = useState(0); const [invite, setInvite] = useState(false); const [role, setRole] = useState('Editor'); const [checked, setChecked] = useState<Record<string, boolean>>({ '0-0': true }); const [copied, setCopied] = useState(false)
+  useEffect(() => { void checkRyokoConnection() }, [])
   const toggle = (key: string) => setChecked(value => ({ ...value, [key]: !value[key] }))
   const copy = () => { navigator.clipboard?.writeText('SAKURA-8Q'); setCopied(true); setTimeout(() => setCopied(false), 1500) }
   return <main className="shell">
