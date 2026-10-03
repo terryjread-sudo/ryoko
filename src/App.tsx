@@ -75,6 +75,12 @@ export default function App() {
   const [instagramError, setInstagramError] = useState("");
   const [useInstagramLocation, setUseInstagramLocation] = useState(false);
 
+  const journeyStart = session?.startDate || from || undefined;
+  const journeyEnd = session?.endDate || to || undefined;
+  const isJourneyDate = (value: string) =>
+    (!journeyStart || value >= journeyStart) &&
+    (!journeyEnd || value <= journeyEnd);
+
   useEffect(() => {
     if (!session) {
       setLoading(false);
@@ -118,6 +124,10 @@ export default function App() {
     field: "city" | "title" | "date",
     value: string,
   ) => {
+    if (field === "date" && !isJourneyDate(value)) {
+      setError("Choose a date within your journey range.");
+      return;
+    }
     setDays((current) =>
       current.map((day, i) =>
         i === index
@@ -205,6 +215,10 @@ export default function App() {
       return;
     }
     const date = from || new Date().toISOString().slice(0, 10);
+    if (!isJourneyDate(date)) {
+      setError("Choose a date within your journey range.");
+      return;
+    }
     try {
       const saved = await saveDay(session, { date, city: "", title: "" });
       setDays((current) => [
@@ -243,7 +257,7 @@ export default function App() {
       return setError("Add a name, dates, and at least one destination.");
     try {
       const created = await createTrip(tripName, from, to, name);
-      setSession(created);
+      setSession({ ...created, startDate: from, endDate: to });
       setJourneyName(tripName);
       for (const city of chosen) {
         const saved = await saveDay(created, { date: from, city, title: "" });
@@ -381,8 +395,14 @@ export default function App() {
                   Selected date{" "}
                   <input
                     type="date"
+                    min={journeyStart}
+                    max={journeyEnd}
                     value={days[active].date}
                     onChange={(e) => updateDay(active, "date", e.target.value)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.currentTarget.showPicker?.();
+                    }}
                   />
                 </label>
               )}
@@ -434,9 +454,14 @@ export default function App() {
                   <input
                     className="date-input"
                     type="date"
+                    min={journeyStart}
+                    max={journeyEnd}
                     value={day.date}
                     onChange={(e) => updateDay(index, "date", e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.currentTarget.showPicker?.();
+                    }}
                   />
                   <b>{day.date.slice(8, 10)}</b>
                   <small>{day.date.slice(5, 7)}</small>
@@ -756,11 +781,16 @@ export default function App() {
               <div className="date-fields">
                 <input
                   type="date"
+                  min={new Date().toISOString().slice(0, 10)}
                   value={from}
-                  onChange={(e) => setFrom(e.target.value)}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    if (to && e.target.value > to) setTo("");
+                  }}
                 />
                 <input
                   type="date"
+                  min={from || new Date().toISOString().slice(0, 10)}
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                 />
