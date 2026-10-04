@@ -157,6 +157,21 @@
   position: absolute;
   top: 10px;
 }
+.google-route-link {
+  background: #735fa6e8;
+  border-radius: 7px;
+  bottom: 10px;
+  color: #fff;
+  font-size: 10px;
+  left: 10px;
+  padding: 6px 8px;
+  position: absolute;
+  text-decoration: none;
+}
+.google-route-link + .google-map-selected {
+  bottom: 10px;
+  top: auto;
+}
 
 .real-pin {
   cursor: pointer;
@@ -168,6 +183,19 @@
   paint-order: stroke;
   pointer-events: none;
   stroke: #f4faf2;
+  stroke-width: 3px;
+}
+.instagram-map-pin {
+  fill: #e88073;
+  stroke: #fff;
+  stroke-width: 2px;
+}
+.instagram-map-label {
+  fill: #9b5058;
+  font-size: 8px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #fffaf5;
   stroke-width: 3px;
 }
 .real-pin circle {
@@ -724,6 +752,35 @@
   display: grid;
   line-height: 1.2;
   text-align: right;
+}
+.empty-hint {
+  color: #a29a9d;
+  display: block;
+  font-size: 10px;
+  margin-top: 6px;
+}
+.toast {
+  align-items: center;
+  background: #403744;
+  border-radius: 10px;
+  bottom: 22px;
+  box-shadow: 0 10px 25px #40374433;
+  color: #fff;
+  display: flex;
+  font-size: 12px;
+  gap: 14px;
+  left: 50%;
+  padding: 10px 14px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 8;
+}
+.toast button {
+  background: transparent;
+  border: 0;
+  color: #f5d48d;
+  cursor: pointer;
+  font-weight: 700;
 }
 .kaishi-footer-link {
   align-items: center;

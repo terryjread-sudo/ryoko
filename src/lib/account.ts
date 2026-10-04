@@ -7,6 +7,8 @@ export type AccountPlan = {
   end_date: string;
   linked_at: string;
   archived_at?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
 };
 
 export async function requestAccountLink(email: string) {
@@ -111,6 +113,14 @@ export async function getAccountProfile() {
 export async function archiveAdminPlan(tripId: string) {
   if (!supabase) return;
   const { error } = await supabase.rpc("ryoko_admin_archive_trip", {
+    p_trip: tripId,
+  });
+  if (error) throw error;
+}
+
+export async function archiveOwnPlan(tripId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_archive_account_trip", {
     p_trip: tripId,
   });
   if (error) throw error;

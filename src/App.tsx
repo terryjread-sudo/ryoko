@@ -25,6 +25,7 @@ import {
   deleteAdminPlan,
   exportAccountData,
   archiveAdminPlan,
+  archiveOwnPlan,
   getAccountProfile,
   isAdmin,
   linkCurrentTrip,
@@ -168,6 +169,25 @@ const mapPlaceLabels = [
   ["Furano", "富良野", 43.342, 142.383],
   ["Aomori", "青森", 40.8222, 140.7474],
   ["Sendai", "仙台", 38.2682, 140.8694],
+  ["Shibuya", "渋谷", 35.6595, 139.7005],
+  ["Shinjuku", "新宿", 35.6938, 139.7034],
+  ["Asakusa", "浅草", 35.7148, 139.7967],
+  ["Akihabara", "秋葉原", 35.6984, 139.7731],
+  ["Arashiyama", "嵐山", 35.0094, 135.6668],
+  ["Gion", "祇園", 35.0037, 135.7788],
+  ["Fushimi Inari", "伏見稲荷", 34.9671, 135.7727],
+  ["Kiyomizu-dera", "清水寺", 34.9949, 135.785],
+  ["Kinkaku-ji", "金閣寺", 35.0394, 135.7292],
+  ["Dotonbori", "道頓堀", 34.6687, 135.5013],
+  ["Osaka Castle", "大阪城", 34.6873, 135.5262],
+  ["Universal Studios Japan", "ユニバーサル・スタジオ・ジャパン", 34.6654, 135.4323],
+  ["Nara Park", "奈良公園", 34.6851, 135.843],
+  ["Todaiji", "東大寺", 34.6889, 135.8398],
+  ["Himeji Castle", "姫路城", 34.8394, 134.6939],
+  ["Kenrokuen", "兼六園", 36.5626, 136.6625],
+  ["Nikko Toshogu", "日光東照宮", 36.758, 139.5989],
+  ["Atomic Bomb Dome", "原爆ドーム", 34.3955, 132.4536],
+  ["Itsukushima Shrine", "厳島神社", 34.2959, 132.3198],
 ] as const;
 const destinationMatches = (value: string) => {
   const query = value.trim().toLowerCase();
@@ -206,6 +226,14 @@ function JapanMap({
     japanese,
     coord: [lat, lon] as [number, number],
   }));
+  const taggedPoints = days.flatMap((day, dayIndex) =>
+    (day.instagramItems ?? []).flatMap((item) =>
+      (item.places ?? []).flatMap((place) => {
+        const found = labelPoints.find((label) => label.english === place);
+        return found ? [{ ...found, dayIndex, title: item.title }] : [];
+      }),
+    ),
+  );
   const center = points.length
     ? (points
         .reduce(
@@ -224,6 +252,12 @@ function JapanMap({
   const centerPoint = project(center[0], center[1], zoom);
   const googleLanguage = labelLanguage === "japanese" ? "ja" : "en";
   const selectedCenter = points[selectedIndex]?.coord ?? center;
+  const selectedTagged = taggedPoints.filter((point) => point.dayIndex === selectedIndex);
+  const routePoints = [selectedCenter, ...selectedTagged.map((point) => point.coord)];
+  const routeOrigin = routePoints[0];
+  const routeDestination = routePoints[routePoints.length - 1];
+  const routeWaypoints = routePoints.slice(1, -1).map(([lat, lon]) => `${lat},${lon}`).join("|");
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${routeOrigin[0]},${routeOrigin[1]}&destination=${routeDestination[0]},${routeDestination[1]}${routeWaypoints ? `&waypoints=${encodeURIComponent(routeWaypoints)}` : ""}&travelmode=transit&hl=${googleLanguage}`;
   const googleMapUrl = `https://www.google.com/maps?q=${selectedCenter[0]},${selectedCenter[1]}&z=${zoom + 1}&hl=${googleLanguage}&output=embed`;
   if (provider === "google") {
     return (
@@ -242,6 +276,11 @@ function JapanMap({
         >
           Open in Google Maps ↗
         </a>
+        {routePoints.length > 1 && (
+          <a className="google-route-link" href={directionsUrl} target="_blank" rel="noreferrer">
+            Show day route ({routePoints.length} locations) ↗
+          </a>
+        )}
         <span className="google-map-selected">
           {points[selectedIndex]?.day.city || "Selected day"}
         </span>
@@ -292,6 +331,17 @@ function JapanMap({
             </text>
           );
         })}
+        {taggedPoints.map(({ english, japanese, coord, dayIndex, title }) => {
+          const point = project(coord[0], coord[1], zoom);
+          return (
+            <g key={`${english}-${dayIndex}-${title}`} transform={`translate(${width / 2 + point[0] - centerPoint[0]},${height / 2 + point[1] - centerPoint[1]})`}>
+              <circle className="instagram-map-pin" r="7" />
+              <text className="instagram-map-label" y="-10" textAnchor="middle">
+                {labelLanguage === "japanese" ? japanese : english}
+              </text>
+            </g>
+          );
+        })}
         {points.map(({ day, index, coord }) => {
           const point = project(coord[0], coord[1], zoom);
           return (
@@ -322,16 +372,18 @@ function JapanMap({
         <button
           onClick={() => setZoom((value) => Math.min(8, value + 1))}
           aria-label="Zoom in"
+          title="Zoom in"
         >
           ＋
         </button>
         <button
           onClick={() => setZoom((value) => Math.max(3, value - 1))}
           aria-label="Zoom out"
+          title="Zoom out"
         >
           −
         </button>
-        <button onClick={() => setZoom(5)} aria-label="Reset map zoom">
+        <button onClick={() => setZoom(5)} aria-label="Reset map zoom" title="Reset map zoom">
           ⌂
         </button>
       </div>
@@ -380,6 +432,10 @@ export default function App() {
   const [dragged, setDragged] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState<{
+    message: string;
+    undo?: () => void;
+  } | null>(null);
   const [instagramDay, setInstagramDay] = useState<number | null>(null);
   const [instagramUrl, setInstagramUrl] = useState("");
   const [instagramPreview, setInstagramPreview] =
@@ -417,6 +473,11 @@ export default function App() {
   const [mapProvider, setMapProvider] = useState<
     "openstreetmap" | "google"
   >("openstreetmap");
+
+  const showToast = (message: string, undo?: () => void) => {
+    setToast({ message, undo });
+    window.setTimeout(() => setToast(null), undo ? 7000 : 3500);
+  };
 
   const journeyStart = session?.startDate || from || undefined;
   const journeyEnd = session?.endDate || to || undefined;
@@ -680,13 +741,14 @@ export default function App() {
         city: field === "city" ? value : next.city,
         title: field === "title" ? value : next.title,
       })
-        .then(() =>
-          recordAuditEvent(session, "updated_day", {
+        .then(() => {
+          showToast("Day saved");
+          return recordAuditEvent(session, "updated_day", {
             day: next.date,
             city: next.city,
             title: next.title,
-          }),
-        )
+          });
+        })
         .catch((e) => setError(e.message));
   };
   const openInstagram = (index: number) => {
@@ -746,6 +808,7 @@ export default function App() {
         title: instagramPreview.title,
         url: instagramPreview.url,
       });
+      showToast("Instagram inspiration saved");
       setDays((current) =>
         current.map((item, i) =>
           i === index
@@ -794,6 +857,7 @@ export default function App() {
         from: sourceDay.date,
         to: targetDay.date,
       });
+      showToast("Instagram inspiration moved");
       setDays((current) =>
         current.map((day, index) => {
           if (index === draggedInstagram.dayIndex)
@@ -840,6 +904,7 @@ export default function App() {
         },
       ]);
       selectDay(days.length);
+      showToast("Day added");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -858,6 +923,34 @@ export default function App() {
       void recordAuditEvent(session, "deleted_day", { date: day.date });
       setDays((current) => current.filter((_, i) => i !== index));
       setActive((current) => Math.max(0, Math.min(current, days.length - 2)));
+      showToast("Day deleted", async () => {
+        try {
+          const restored = await saveDay(session, {
+            date: day.date,
+            city: day.city,
+            title: day.title,
+          });
+          const restoredItems = await Promise.all(
+            day.instagramItems.map(async (item) => {
+              const saved = await saveItem(session, {
+                dayId: restored.id,
+                kind: "instagram",
+                content: JSON.stringify(item),
+                completed: false,
+              });
+              return { ...item, id: saved?.id };
+            }),
+          );
+          setDays((current) => {
+            const next = [...current];
+            next.splice(index, 0, { ...day, id: restored.id, instagramItems: restoredItems });
+            return next;
+          });
+          showToast("Day restored");
+        } catch (e) {
+          setError((e as Error).message);
+        }
+      });
     } catch (e) {
       setError((e as Error).message);
     }
@@ -1264,6 +1357,11 @@ export default function App() {
                   >
                     Add Instagram inspiration
                   </button>
+                  {!day.instagramItems.length && (
+                    <small className="empty-hint">
+                      Save a post or Reel here to keep ideas attached to this day.
+                    </small>
+                  )}
                   {!!day.instagramItems.length && (
                     <div className="instagram-items">
                       {day.instagramItems.map((item) => (
@@ -1333,6 +1431,27 @@ export default function App() {
                                       : entry,
                                   ),
                                 );
+                                showToast("Instagram inspiration removed", async () => {
+                                  if (!session || !day.id) return;
+                                  try {
+                                    const restored = await saveItem(session, {
+                                      dayId: day.id,
+                                      kind: "instagram",
+                                      content: JSON.stringify(item),
+                                      completed: false,
+                                    });
+                                    setDays((current) =>
+                                      current.map((entry, dayIndex) =>
+                                        dayIndex === index
+                                          ? { ...entry, instagramItems: [...entry.instagramItems, { ...item, id: restored?.id }] }
+                                          : entry,
+                                      ),
+                                    );
+                                    showToast("Instagram inspiration restored");
+                                  } catch (error) {
+                                    setError((error as Error).message);
+                                  }
+                                });
                               } catch (error) {
                                 setError((error as Error).message);
                               }
@@ -1446,6 +1565,22 @@ export default function App() {
           </button>
         )}
       </footer>
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast.message}</span>
+          {toast.undo && (
+            <button
+              onClick={() => {
+                const undo = toast.undo;
+                setToast(null);
+                undo?.();
+              }}
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
       {modal === "start" && (
         <div className="backdrop">
           <div className="modal choice-modal">
@@ -1660,6 +1795,24 @@ export default function App() {
                         </button>
                         <button
                           className="plan-open"
+                          title="Archive this journey if you created it"
+                          onClick={async () => {
+                            if (!window.confirm(`Archive ${plan.name}?`)) return;
+                            try {
+                              await archiveOwnPlan(plan.trip_id);
+                              setAccountPlans((items) =>
+                                items.filter((item) => item.trip_id !== plan.trip_id),
+                              );
+                              setAccountMessage("Journey archived.");
+                            } catch (e) {
+                              setAccountMessage((e as Error).message);
+                            }
+                          }}
+                        >
+                          Archive
+                        </button>
+                        <button
+                          className="plan-open"
                           onClick={() => void unlinkCurrentPlan(plan)}
                         >
                           Unlink
@@ -1691,6 +1844,9 @@ export default function App() {
                             <b>{plan.name}</b>
                             <small>
                               {plan.start_date} → {plan.end_date}
+                            </small>
+                            <small>
+                              Created by {plan.created_by ?? "Unknown"} · {plan.created_at ? new Date(plan.created_at).toLocaleString() : "Unknown time"}
                             </small>
                           </div>
                           <div className="plan-actions">
