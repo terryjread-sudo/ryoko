@@ -1488,7 +1488,7 @@ export default function App() {
                     <b>{event.event_type.replaceAll("_", " ")}</b>
                     <small>{new Date(event.created_at).toLocaleString()}</small>
                     <span>
-                      {String(event.payload.city ?? event.payload.title ?? event.payload.url ?? "Journey updated")}
+                      {String(event.payload.actor ?? "A traveller")} · {String(event.payload.city ?? event.payload.title ?? event.payload.url ?? "Journey updated")}
                     </span>
                   </article>
                 ))}

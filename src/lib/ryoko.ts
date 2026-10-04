@@ -234,17 +234,21 @@ export async function recordAuditEvent(
   payload: Record<string, unknown>,
 ) {
   if (!supabase) return;
+  const eventPayload = {
+    ...payload,
+    actor: session.displayName,
+  };
   const { error } = session.code
     ? await supabase.rpc("ryoko_record_audit_event", {
         p_code: session.code,
         p_trip: session.tripId,
         p_event_type: eventType,
-        p_payload: payload,
+        p_payload: eventPayload,
       })
     : await supabase.rpc("ryoko_record_account_audit_event", {
         p_trip: session.tripId,
         p_event_type: eventType,
-        p_payload: payload,
+        p_payload: eventPayload,
       });
   if (error) throw error;
 }
