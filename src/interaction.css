@@ -171,6 +171,31 @@
   height: 30px;
   width: 30px;
 }
+.map-language-toggle {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+  margin: 16px 0 9px;
+}
+.map-language-toggle span {
+  color: #958d91;
+  font-size: 11px;
+  margin-right: 3px;
+}
+.map-language-toggle button {
+  background: #fff;
+  border: 1px solid #eadfd7;
+  border-radius: 999px;
+  color: #665b69;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 5px 9px;
+}
+.map-language-toggle button.selected {
+  background: #735fa6;
+  border-color: #735fa6;
+  color: #fff;
+}
 .map-credit {
   bottom: 6px;
   color: #665b69;
@@ -530,4 +555,14 @@
   .move-button {
     padding: 7px 4px;
   }
+}
+.save {
+  display: grid;
+  line-height: 1.2;
+  text-align: right;
+}
+.save small {
+  color: #b4a9ad;
+  font-size: 8px;
+  letter-spacing: 0.5px;
 }

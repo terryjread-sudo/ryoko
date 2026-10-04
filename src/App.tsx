@@ -85,6 +85,16 @@ const destinationCoords: Record<string, [number, number]> = {
   Sapporo: [43.0618, 141.3545],
   Fukuoka: [33.5902, 130.4017],
 };
+const destinationJapanese: Record<string, string> = {
+  Tokyo: "東京",
+  Kyoto: "京都",
+  Osaka: "大阪",
+  Nara: "奈良",
+  Hiroshima: "広島",
+  Hakone: "箱根",
+  Sapporo: "札幌",
+  Fukuoka: "福岡",
+};
 const destinationMatches = (value: string) => {
   const query = value.trim().toLowerCase();
   if (!query) return destinations.slice(0, 5);
@@ -98,9 +108,11 @@ const destinationMatches = (value: string) => {
 function JapanMap({
   days,
   onSelect,
+  labelLanguage,
 }: {
   days: Day[];
   onSelect: (index: number) => void;
+  labelLanguage: "english" | "japanese";
 }) {
   const [zoom, setZoom] = useState(5);
   const width = 800;
@@ -171,7 +183,13 @@ function JapanMap({
                 ✦
               </text>
               <text className="real-pin-label" y="29" textAnchor="middle">
-                {day.city || "Choose a destination"}
+                {day.city
+                  ? labelLanguage === "japanese"
+                    ? destinationJapanese[day.city] ?? day.city
+                    : day.city
+                  : labelLanguage === "japanese"
+                    ? "行き先を選択"
+                    : "Choose a destination"}
               </text>
             </g>
           );
@@ -246,6 +264,9 @@ export default function App() {
   });
   const [accountIsAdmin, setAccountIsAdmin] = useState(false);
   const [accountCodes, setAccountCodes] = useState<Record<string, string>>({});
+  const [mapLabelLanguage, setMapLabelLanguage] = useState<
+    "english" | "japanese"
+  >("english");
 
   const journeyStart = session?.startDate || from || undefined;
   const journeyEnd = session?.endDate || to || undefined;
@@ -255,15 +276,34 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase) return;
+    let disposed = false;
+    const enterAccount = async (user: NonNullable<typeof accountUser>) => {
+      setAccountUser(user);
+      if (getStoredSession()) return;
+      try {
+        const plans = await listAccountPlans();
+        if (disposed) return;
+        setAccountPlans(plans);
+        setModal(plans.length ? "account" : "start");
+      } catch {
+        if (!disposed) setModal("start");
+      }
+    };
     void supabase.auth.getSession().then(({ data }) => {
-      setAccountUser(data.session?.user ?? null);
-      if (data.session?.user && !getStoredSession()) setModal("create");
+      if (data.session?.user) void enterAccount(data.session.user);
+      else setAccountUser(null);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, authSession) => {
-      setAccountUser(authSession?.user ?? null);
-      if (authSession?.user && !getStoredSession()) setModal("create");
+      if (authSession?.user) void enterAccount(authSession.user);
+      else {
+        setAccountUser(null);
+        if (!getStoredSession()) setModal("start");
+      }
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      disposed = true;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   const openAccount = async () => {
@@ -500,6 +540,7 @@ export default function App() {
         title: instagramPreview.title,
         description: instagramPreview.description,
         author: instagramPreview.author,
+        thumbnailUrl: instagramPreview.thumbnailUrl,
         location: instagramPreview.location,
       });
       const saved = await saveItem(session, {
@@ -605,6 +646,7 @@ export default function App() {
     setActive(target);
   };
   const create = async () => {
+    setError("");
     if (!tripName || (!accountUser && !name) || !from || !to || !chosen.length)
       return setError("Add a name, dates, and at least one destination.");
     try {
@@ -625,12 +667,16 @@ export default function App() {
         }),
       );
       setSession({ ...created, startDate: from, endDate: to });
+      localStorage.setItem(
+        "ryoko_session",
+        JSON.stringify({ ...created, startDate: from, endDate: to }),
+      );
       if (accountUser) {
         try {
           await linkCurrentTrip(created.tripId, created.code);
         } catch {
           setAccountMessage(
-            "Journey created. Link it from your account profile after the account migration is applied.",
+            "Journey created, but it could not be linked to your account. Open Account and link it with the journey code.",
           );
         }
       }
@@ -643,11 +689,20 @@ export default function App() {
     }
   };
   const join = async () => {
+    setError("");
     if (!name || !code) return;
     try {
       const joined = await joinTrip(code, name);
       setSession(joined);
-      if (accountUser) await linkCurrentTrip(joined.tripId, joined.code);
+      if (accountUser) {
+        try {
+          await linkCurrentTrip(joined.tripId, joined.code);
+        } catch {
+          setAccountMessage(
+            "Journey joined, but it could not be linked to your account. You can link it from Account.",
+          );
+        }
+      }
       setModal(null);
     } catch (e) {
       setError((e as Error).message);
@@ -674,7 +729,8 @@ export default function App() {
         </button>
         <div className="top-actions">
           <span className="save">
-            {accountUser ? "● Connected" : "○ Not connected"}
+            <span>{accountUser ? "● Connected" : "○ Not connected"}</span>
+            <small>Release {__RELEASE_STAMP__}</small>
           </span>
           <button
             className="ghost"
@@ -1031,7 +1087,28 @@ export default function App() {
               ⌖
             </button>
           </div>
-          <JapanMap days={days} onSelect={setActive} />
+          <div className="map-language-toggle" role="group" aria-label="Map place names">
+            <span>Place names</span>
+            <button
+              className={mapLabelLanguage === "english" ? "selected" : ""}
+              onClick={() => setMapLabelLanguage("english")}
+              aria-pressed={mapLabelLanguage === "english"}
+            >
+              English
+            </button>
+            <button
+              className={mapLabelLanguage === "japanese" ? "selected" : ""}
+              onClick={() => setMapLabelLanguage("japanese")}
+              aria-pressed={mapLabelLanguage === "japanese"}
+            >
+              日本語
+            </button>
+          </div>
+          <JapanMap
+            days={days}
+            onSelect={setActive}
+            labelLanguage={mapLabelLanguage}
+          />
           <div className="legend">
             {days.length
               ? `${cities} destinations in your journey`

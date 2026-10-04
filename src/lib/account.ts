@@ -29,9 +29,13 @@ export async function signInWithGithub() {
 
 export async function linkCurrentTrip(tripId: string, code: string) {
   if (!supabase) return;
+  const normalizedCode = code.trim().toLowerCase();
+  if (!tripId || !normalizedCode) {
+    throw new Error("The journey access code is missing. Please reopen the journey and try again.");
+  }
   const { error } = await supabase.rpc("ryoko_link_account_trip", {
     p_trip: tripId,
-    p_code: code,
+    p_code: normalizedCode,
   });
   if (error) throw error;
 }

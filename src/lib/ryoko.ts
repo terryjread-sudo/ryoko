@@ -17,23 +17,26 @@ export async function createTrip(
   ownerName: string,
 ): Promise<RyokoSession> {
   if (!supabase) throw new Error("Supabase is not configured");
-  const { data, error } = await supabase.rpc("ryoko_create_trip", {
+  const { data, error } = await supabase.rpc("ryoko_create_trip_with_code", {
     p_name: name,
     p_start: start,
     p_end: end,
     p_owner_name: ownerName,
   });
   if (error) throw error;
+  const code = String(data?.code ?? "").trim().toLowerCase();
+  if (!data?.trip_id || !code) {
+    throw new Error("The server did not return a journey access code.");
+  }
   const session = {
     tripId: data.trip_id,
-    code: data.code,
+    code,
     role: data.role,
     displayName: ownerName,
     color: "#735fa6",
     startDate: start,
     endDate: end,
   } as RyokoSession;
-  localStorage.setItem("ryoko_session", JSON.stringify(session));
   return session;
 }
 

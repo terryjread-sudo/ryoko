@@ -110,7 +110,7 @@ returns setof public.ryoko_day_items language plpgsql security definer set searc
 begin
   if not exists (
     select 1 from public.ryoko_trips t where t.id = p_trip and extensions.crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
-    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and extensions.crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
   ) then raise exception 'Invalid journey code'; end if;
   return query select i.* from public.ryoko_day_items i where i.day_id = p_day and i.kind = 'instagram' order by i.sort_order, i.created_at;
 end; $$;
@@ -127,7 +127,7 @@ returns void language plpgsql security definer set search_path = public, extensi
 begin
   if not exists (
     select 1 from public.ryoko_trips t where t.id = p_trip and extensions.crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
-    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and extensions.crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
   ) then raise exception 'Invalid journey code'; end if;
   delete from public.ryoko_day_items where id = p_item;
 end; $$;
