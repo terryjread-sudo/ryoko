@@ -454,6 +454,13 @@
   max-width: 600px;
 }
 
+.journey-label {
+  color: #735fa6;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
 .instagram-preview small,
 .instagram-preview span {
   color: #927f79;

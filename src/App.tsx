@@ -545,7 +545,7 @@ export default function App() {
   };
   const removeDay = async (index: number) => {
     const day = days[index];
-    if (!day?.id || !session) return;
+    if (!day || !session) return;
     if (
       !window.confirm(
         `Delete day ${day.date}? This removes its saved items too.`,
@@ -553,7 +553,7 @@ export default function App() {
     )
       return;
     try {
-      await deleteDay(session, day.id);
+      if (day.id) await deleteDay(session, day.id);
       setDays((current) => current.filter((_, i) => i !== index));
       setActive((current) => Math.max(0, Math.min(current, days.length - 2)));
     } catch (e) {
@@ -583,10 +583,11 @@ export default function App() {
     setActive(target);
   };
   const create = async () => {
-    if (!tripName || !name || !from || !to || !chosen.length)
+    if (!tripName || (!accountUser && !name) || !from || !to || !chosen.length)
       return setError("Add a name, dates, and at least one destination.");
     try {
-      const created = await createTrip(tripName, from, to, name);
+      const ownerName = accountUser ? accountDisplayName : name;
+      const created = await createTrip(tripName, from, to, ownerName);
       const createdDays = await Promise.all(
         chosen.map(async (city) => {
           const saved = await saveDay(created, { date: from, city, title: "" });
@@ -602,11 +603,19 @@ export default function App() {
         }),
       );
       setSession({ ...created, startDate: from, endDate: to });
-      if (accountUser) await linkCurrentTrip(created.tripId, created.code);
+      if (accountUser) {
+        try {
+          await linkCurrentTrip(created.tripId, created.code);
+        } catch (e) {
+          setError(
+            `Journey created, but account linking needs attention: ${(e as Error).message}`,
+          );
+        }
+      }
       setJourneyName(tripName);
       setDays(createdDays);
       setActive(0);
-      setModal("code");
+      setModal(null);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -666,6 +675,7 @@ export default function App() {
           <p className="eyebrow">
             {session ? "YOUR SHARED JAPAN ITINERARY" : "A SHARED JAPAN PLANNER"}
           </p>
+          {session && <p className="journey-label">{journeyName}</p>}
           <h1>
             {session ? (
               <>
@@ -916,29 +926,31 @@ export default function App() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (
-                                !item.id ||
-                                !session ||
-                                !day.id ||
                                 !window.confirm(
                                   "Remove this Instagram inspiration?",
                                 )
                               )
                                 return;
-                              await deleteItem(session, item.id, day.id);
-                              setDays((current) =>
-                                current.map((entry, i) =>
-                                  i === index
-                                    ? {
-                                        ...entry,
-                                        instagramItems:
-                                          entry.instagramItems.filter(
-                                            (savedItem) =>
-                                              savedItem.id !== item.id,
-                                          ),
-                                      }
-                                    : entry,
-                                ),
-                              );
+                              try {
+                                if (item.id && session && day.id)
+                                  await deleteItem(session, item.id, day.id);
+                                setDays((current) =>
+                                  current.map((entry, i) =>
+                                    i === index
+                                      ? {
+                                          ...entry,
+                                          instagramItems:
+                                            entry.instagramItems.filter(
+                                              (savedItem) =>
+                                                savedItem.id !== item.id,
+                                            ),
+                                        }
+                                      : entry,
+                                  ),
+                                );
+                              } catch (error) {
+                                setError((error as Error).message);
+                              }
                             }}
                           >
                             ×
@@ -1496,11 +1508,12 @@ export default function App() {
               />
             </label>
             <label>
-              Your name
+              {accountUser ? "Profile name" : "Your name"}
               <input
-                placeholder="e.g. Terry"
+                placeholder={accountUser ? accountDisplayName : "e.g. Terry"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                disabled={!!accountUser}
               />
             </label>
             <label>
