@@ -1,4 +1,5 @@
 -- Apply this repair if the account migration was partially applied.
+create extension if not exists pgcrypto;
 create table if not exists public.ryoko_account_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
@@ -55,3 +56,23 @@ grant execute on function public.ryoko_get_account_profile() to authenticated;
 grant execute on function public.ryoko_save_account_profile(text, text) to authenticated;
 grant execute on function public.ryoko_is_admin() to authenticated;
 grant execute on function public.ryoko_list_account_trips() to authenticated;
+
+create or replace function public.ryoko_delete_day(p_code text, p_trip uuid, p_day uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (
+    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+  ) then raise exception 'Invalid journey code'; end if;
+  delete from public.ryoko_trip_days where id = p_day and trip_id = p_trip;
+end; $$;
+
+create or replace function public.ryoko_delete_account_day(p_trip uuid, p_day uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.ryoko_account_trips where trip_id = p_trip and user_id = auth.uid()) then raise exception 'Journey not linked to account'; end if;
+  delete from public.ryoko_trip_days where id = p_day and trip_id = p_trip;
+end; $$;
+
+grant execute on function public.ryoko_delete_day(text, uuid, uuid) to anon, authenticated;
+grant execute on function public.ryoko_delete_account_day(uuid, uuid) to authenticated;

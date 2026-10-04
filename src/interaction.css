@@ -67,6 +67,55 @@
   border-radius: 5px;
 }
 
+.delete-day-button:hover,
+.delete-day-button:focus-visible {
+  color: #b44752;
+}
+
+.selection-summary {
+  background: #fff4ee;
+  border: 1px solid #f0ddd3;
+  border-radius: 8px;
+  color: #806f6a;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 8px 0 10px;
+  padding: 9px 11px;
+}
+
+.destination-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.destination {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #eadfd7;
+  border-radius: 8px;
+  color: #665b69;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  justify-content: space-between;
+  padding: 10px;
+  text-align: left;
+}
+
+.destination:hover,
+.destination.selected-destination {
+  background: #fff0ea;
+  border-color: #db9b91;
+  color: #9b5058;
+}
+
+.destination strong {
+  color: #4b9b71;
+  font-size: 1rem;
+  margin-left: auto;
+}
+
 .drag-handle {
   cursor: grab;
   font-size: 1.2rem;

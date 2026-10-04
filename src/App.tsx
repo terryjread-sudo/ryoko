@@ -3,6 +3,7 @@ import "./App.css";
 import "./interaction.css";
 import {
   createTrip,
+  deleteDay,
   getStoredSession,
   issueMember,
   joinTrip,
@@ -377,6 +378,23 @@ export default function App() {
       setError((e as Error).message);
     }
   };
+  const removeDay = async (index: number) => {
+    const day = days[index];
+    if (!day?.id || !session) return;
+    if (
+      !window.confirm(
+        `Delete day ${day.date}? This removes its saved items too.`,
+      )
+    )
+      return;
+    try {
+      await deleteDay(session, day.id);
+      setDays((current) => current.filter((_, i) => i !== index));
+      setActive((current) => Math.max(0, Math.min(current, days.length - 2)));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
   const moveDay = (target: number) => {
     if (dragged === null || dragged === target) return;
     setDays((current) => {
@@ -405,7 +423,7 @@ export default function App() {
     try {
       const created = await createTrip(tripName, from, to, name);
       setSession({ ...created, startDate: from, endDate: to });
-      if (accountUser) void linkCurrentTrip(created.tripId, created.code);
+      if (accountUser) await linkCurrentTrip(created.tripId, created.code);
       setJourneyName(tripName);
       for (const city of chosen) {
         const saved = await saveDay(created, { date: from, city, title: "" });
@@ -431,7 +449,7 @@ export default function App() {
     try {
       const joined = await joinTrip(code, name);
       setSession(joined);
-      if (accountUser) void linkCurrentTrip(joined.tripId, joined.code);
+      if (accountUser) await linkCurrentTrip(joined.tripId, joined.code);
       setModal(null);
     } catch (e) {
       setError((e as Error).message);
@@ -668,6 +686,17 @@ export default function App() {
                         }}
                       >
                         ↓
+                      </button>
+                      <button
+                        className="move-button delete-day-button"
+                        title="Delete day"
+                        aria-label="Delete day"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeDay(index);
+                        }}
+                      >
+                        ×
                       </button>
                     </span>
                   </div>
@@ -1196,6 +1225,11 @@ export default function App() {
             </label>
             <label>
               Destinations
+              <p className="selection-summary">
+                {chosen.length
+                  ? `${chosen.length} selected: ${chosen.join(", ")}`
+                  : "None selected yet — choose one or more destinations."}
+              </p>
               <div className="destination-grid">
                 {destinations.map((city) => (
                   <button
@@ -1214,7 +1248,12 @@ export default function App() {
                       )
                     }
                   >
-                    {emojis[city]} {city}
+                    <span>
+                      {emojis[city]} {city}
+                    </span>
+                    {chosen.includes(city) && (
+                      <strong aria-label="Selected">✓</strong>
+                    )}
                   </button>
                 ))}
               </div>

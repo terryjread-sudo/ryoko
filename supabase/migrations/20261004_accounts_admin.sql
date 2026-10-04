@@ -1,4 +1,5 @@
 -- Account identities remain optional: access codes continue to work for guests.
+create extension if not exists pgcrypto;
 create table if not exists public.ryoko_account_trips (
   user_id uuid not null references auth.users(id) on delete cascade,
   trip_id uuid not null references public.ryoko_trips(id) on delete cascade,

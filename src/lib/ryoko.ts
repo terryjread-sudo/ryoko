@@ -107,6 +107,21 @@ export async function saveDay(
   return data;
 }
 
+export async function deleteDay(session: RyokoSession, dayId: string) {
+  if (!supabase) return;
+  const { error } = session.code
+    ? await supabase.rpc("ryoko_delete_day", {
+        p_code: session.code,
+        p_day: dayId,
+        p_trip: session.tripId,
+      })
+    : await supabase.rpc("ryoko_delete_account_day", {
+        p_day: dayId,
+        p_trip: session.tripId,
+      });
+  if (error) throw error;
+}
+
 export async function saveItem(
   session: RyokoSession,
   item: {
