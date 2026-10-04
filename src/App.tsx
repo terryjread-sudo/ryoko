@@ -16,10 +16,19 @@ import { resolveInstagramUrl, type InstagramPreview } from "./lib/instagram";
 import { supabase } from "./lib/supabase";
 import {
   deleteAdminPlan,
+  exportAccountData,
+  archiveAdminPlan,
+  getAccountProfile,
+  isAdmin,
   linkCurrentTrip,
   listAccountPlans,
   listAdminPlans,
   requestAccountLink,
+  revealAccountTripCode,
+  restoreAdminPlan,
+  saveAccountProfile,
+  requestAccountDeletion,
+  unlinkPlan,
   signInWithGithub,
   type AccountPlan,
 } from "./lib/account";
@@ -84,13 +93,22 @@ export default function App() {
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState("");
   const [useInstagramLocation, setUseInstagramLocation] = useState(false);
-  const [accountUser, setAccountUser] = useState<{ email?: string } | null>(
-    null,
-  );
+  const [accountUser, setAccountUser] = useState<{
+    email?: string;
+    created_at?: string;
+    app_metadata?: Record<string, unknown>;
+    user_metadata?: Record<string, unknown>;
+  } | null>(null);
   const [accountEmail, setAccountEmail] = useState("");
   const [accountMessage, setAccountMessage] = useState("");
   const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
   const [adminPlans, setAdminPlans] = useState<AccountPlan[]>([]);
+  const [accountProfile, setAccountProfile] = useState({
+    displayName: "",
+    avatarColor: "#735fa6",
+  });
+  const [accountIsAdmin, setAccountIsAdmin] = useState(false);
+  const [accountCodes, setAccountCodes] = useState<Record<string, string>>({});
 
   const journeyStart = session?.startDate || from || undefined;
   const journeyEnd = session?.endDate || to || undefined;
@@ -114,11 +132,82 @@ export default function App() {
     setAccountMessage("");
     if (!accountUser) return;
     try {
+      const profile = await getAccountProfile();
+      setAccountProfile({
+        displayName: profile?.display_name ?? "",
+        avatarColor: profile?.avatar_color ?? "#735fa6",
+      });
+      const admin = await isAdmin();
+      setAccountIsAdmin(admin);
       setAccountPlans(await listAccountPlans());
-      setAdminPlans(await listAdminPlans());
+      if (admin) setAdminPlans(await listAdminPlans());
     } catch (e) {
       setAccountMessage((e as Error).message);
     }
+  };
+  const accountDisplayName =
+    accountProfile.displayName ||
+    String(
+      accountUser?.user_metadata?.full_name ??
+        accountUser?.user_metadata?.name ??
+        accountUser?.email ??
+        "",
+    );
+  const accountInitial =
+    accountDisplayName.trim().charAt(0).toUpperCase() || "?";
+  const saveProfile = async () => {
+    try {
+      await saveAccountProfile(
+        accountProfile.displayName,
+        accountProfile.avatarColor,
+      );
+      setAccountMessage("Profile saved.");
+    } catch (e) {
+      setAccountMessage((e as Error).message);
+    }
+  };
+  const openLinkedPlan = (plan: AccountPlan) => {
+    const accountSession: RyokoSession = {
+      tripId: plan.trip_id,
+      code: "",
+      role: "owner",
+      displayName: accountDisplayName,
+      color: accountProfile.avatarColor,
+      startDate: plan.start_date,
+      endDate: plan.end_date,
+    };
+    localStorage.setItem("ryoko_session", JSON.stringify(accountSession));
+    setSession(accountSession);
+    setJourneyName(plan.name);
+    setModal(null);
+  };
+  const revealCode = async (tripId: string) => {
+    if (!window.confirm("Reveal this journey access code?")) return;
+    try {
+      const value = await revealAccountTripCode(tripId);
+      if (value)
+        setAccountCodes((current) => ({ ...current, [tripId]: value }));
+    } catch (e) {
+      setAccountMessage((e as Error).message);
+    }
+  };
+  const unlinkCurrentPlan = async (plan: AccountPlan) => {
+    if (!window.confirm(`Unlink ${plan.name} from this account?`)) return;
+    await unlinkPlan(plan.trip_id);
+    setAccountPlans((items) =>
+      items.filter((item) => item.trip_id !== plan.trip_id),
+    );
+  };
+  const downloadAccountExport = async () => {
+    const data = await exportAccountData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "ryoko-account-export.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
   const sendAccountLink = async () => {
     try {
@@ -383,9 +472,7 @@ export default function App() {
             onClick={() => void openAccount()}
             aria-label="Open account"
           >
-            {accountUser?.email?.[0]?.toUpperCase() ??
-              session?.displayName?.[0] ??
-              "?"}
+            {accountUser ? accountInitial : (session?.displayName?.[0] ?? "?")}
           </button>
         </div>
       </header>
@@ -738,9 +825,55 @@ export default function App() {
               </>
             ) : (
               <>
-                <p className="modal-copy">
-                  Signed in as <b>{accountUser.email}</b>
-                </p>
+                <div className="profile-summary">
+                  <span
+                    className="profile-avatar"
+                    style={{ background: accountProfile.avatarColor }}
+                  >
+                    {accountInitial}
+                  </span>
+                  <div>
+                    <b>{accountDisplayName}</b>
+                    <small>{accountUser.email}</small>
+                    <small>
+                      {accountUser.app_metadata?.provider === "github"
+                        ? "Signed in with GitHub"
+                        : "Signed in with email magic link"}
+                    </small>
+                  </div>
+                </div>
+                <label>
+                  Display name
+                  <input
+                    value={accountProfile.displayName}
+                    placeholder={accountDisplayName}
+                    onChange={(e) =>
+                      setAccountProfile((current) => ({
+                        ...current,
+                        displayName: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Avatar colour
+                  <input
+                    type="color"
+                    value={accountProfile.avatarColor}
+                    onChange={(e) =>
+                      setAccountProfile((current) => ({
+                        ...current,
+                        avatarColor: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <button
+                  className="secondary full"
+                  onClick={() => void saveProfile()}
+                >
+                  Save profile
+                </button>
                 {session && (
                   <button
                     className="secondary full"
@@ -754,17 +887,40 @@ export default function App() {
                   accountPlans.map((plan) => (
                     <div className="plan-row" key={plan.trip_id}>
                       <b>{plan.name}</b>
-                      <small>
-                        {plan.start_date} → {plan.end_date}
-                      </small>
+                      <span>
+                        <small>
+                          {plan.start_date} → {plan.end_date}
+                        </small>
+                        <button
+                          className="plan-open"
+                          onClick={() => openLinkedPlan(plan)}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="plan-open"
+                          onClick={() => void revealCode(plan.trip_id)}
+                        >
+                          {accountCodes[plan.trip_id] ?? "Reveal code"}
+                        </button>
+                        <button
+                          className="plan-open"
+                          onClick={() => void unlinkCurrentPlan(plan)}
+                        >
+                          Unlink
+                        </button>
+                      </span>
                     </div>
                   ))
                 ) : (
                   <p className="account-empty">No linked plans yet.</p>
                 )}
-                {adminPlans.length > 0 && (
+                {accountIsAdmin && (
                   <>
                     <h3 className="account-heading">Admin: all plans</h3>
+                    {!adminPlans.length && (
+                      <p className="account-empty">No plans found.</p>
+                    )}
                     {adminPlans.map((plan) => (
                       <div className="plan-row" key={plan.trip_id}>
                         <div>
@@ -773,20 +929,64 @@ export default function App() {
                             {plan.start_date} → {plan.end_date}
                           </small>
                         </div>
-                        <button
-                          className="delete-plan"
-                          onClick={async () => {
-                            if (!window.confirm(`Remove ${plan.name}?`)) return;
-                            await deleteAdminPlan(plan.trip_id);
-                            setAdminPlans((items) =>
-                              items.filter(
-                                (item) => item.trip_id !== plan.trip_id,
-                              ),
-                            );
-                          }}
-                        >
-                          Remove
-                        </button>
+                        <div className="plan-actions">
+                          <button
+                            className="delete-plan"
+                            onClick={async () => {
+                              if (!window.confirm(`Archive ${plan.name}?`))
+                                return;
+                              await archiveAdminPlan(plan.trip_id);
+                              setAdminPlans((items) =>
+                                items.map((item) =>
+                                  item.trip_id === plan.trip_id
+                                    ? {
+                                        ...item,
+                                        archived_at: new Date().toISOString(),
+                                      }
+                                    : item,
+                                ),
+                              );
+                            }}
+                          >
+                            {plan.archived_at ? "Archived" : "Archive"}
+                          </button>
+                          {plan.archived_at && (
+                            <button
+                              className="plan-open"
+                              onClick={async () => {
+                                await restoreAdminPlan(plan.trip_id);
+                                setAdminPlans((items) =>
+                                  items.map((item) =>
+                                    item.trip_id === plan.trip_id
+                                      ? { ...item, archived_at: null }
+                                      : item,
+                                  ),
+                                );
+                              }}
+                            >
+                              Restore
+                            </button>
+                          )}
+                          <button
+                            className="delete-plan"
+                            onClick={async () => {
+                              if (
+                                !window.confirm(
+                                  `Permanently delete ${plan.name}?`,
+                                )
+                              )
+                                return;
+                              await deleteAdminPlan(plan.trip_id);
+                              setAdminPlans((items) =>
+                                items.filter(
+                                  (item) => item.trip_id !== plan.trip_id,
+                                ),
+                              );
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </>
@@ -794,6 +994,23 @@ export default function App() {
                 {accountMessage && (
                   <p className="form-error">{accountMessage}</p>
                 )}
+                <button
+                  className="secondary full"
+                  onClick={() => void downloadAccountExport()}
+                >
+                  Export my account data
+                </button>
+                <button
+                  className="delete-plan full"
+                  onClick={async () => {
+                    if (!window.confirm("Request deletion of this account?"))
+                      return;
+                    await requestAccountDeletion();
+                    setAccountMessage("Account deletion request recorded.");
+                  }}
+                >
+                  Request account deletion
+                </button>
                 <button
                   className="secondary full"
                   onClick={() => void supabase?.auth.signOut()}

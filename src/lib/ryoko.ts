@@ -64,10 +64,12 @@ export async function joinTrip(
 
 export async function listDays(session: RyokoSession) {
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc("ryoko_list_days", {
-    p_code: session.code,
-    p_trip: session.tripId,
-  });
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_list_days", {
+        p_code: session.code,
+        p_trip: session.tripId,
+      })
+    : await supabase.rpc("ryoko_list_account_days", { p_trip: session.tripId });
   if (error) throw error;
   return data ?? [];
 }
@@ -83,15 +85,24 @@ export async function saveDay(
   },
 ) {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc("ryoko_save_day", {
-    p_code: session.code,
-    p_day: day.id ?? null,
-    p_trip: session.tripId,
-    p_date: day.date,
-    p_city: day.city,
-    p_title: day.title,
-    p_notes: day.notes ?? null,
-  });
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_save_day", {
+        p_code: session.code,
+        p_day: day.id ?? null,
+        p_trip: session.tripId,
+        p_date: day.date,
+        p_city: day.city,
+        p_title: day.title,
+        p_notes: day.notes ?? null,
+      })
+    : await supabase.rpc("ryoko_save_account_day", {
+        p_day: day.id ?? null,
+        p_trip: session.tripId,
+        p_date: day.date,
+        p_city: day.city,
+        p_title: day.title,
+        p_notes: day.notes ?? null,
+      });
   if (error) throw error;
   return data;
 }
@@ -107,14 +118,23 @@ export async function saveItem(
   },
 ) {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc("ryoko_save_item", {
-    p_code: session.code,
-    p_item: item.id ?? null,
-    p_day: item.dayId,
-    p_kind: item.kind,
-    p_content: item.content,
-    p_completed: item.completed,
-  });
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_save_item", {
+        p_code: session.code,
+        p_item: item.id ?? null,
+        p_day: item.dayId,
+        p_kind: item.kind,
+        p_content: item.content,
+        p_completed: item.completed,
+      })
+    : await supabase.rpc("ryoko_save_account_item", {
+        p_trip: session.tripId,
+        p_item: item.id ?? null,
+        p_day: item.dayId,
+        p_kind: item.kind,
+        p_content: item.content,
+        p_completed: item.completed,
+      });
   if (error) throw error;
   return data;
 }

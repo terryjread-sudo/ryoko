@@ -6,6 +6,7 @@ export type AccountPlan = {
   start_date: string;
   end_date: string;
   linked_at: string;
+  archived_at?: string | null;
 };
 
 export async function requestAccountLink(email: string) {
@@ -35,6 +36,15 @@ export async function linkCurrentTrip(tripId: string, code: string) {
   if (error) throw error;
 }
 
+export async function revealAccountTripCode(tripId: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("ryoko_reveal_account_trip_code", {
+    p_trip: tripId,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function listAccountPlans() {
   if (!supabase) return [] as AccountPlan[];
   const { data, error } = await supabase.rpc("ryoko_list_account_trips");
@@ -54,5 +64,68 @@ export async function deleteAdminPlan(tripId: string) {
   const { error } = await supabase.rpc("ryoko_admin_delete_trip", {
     p_trip: tripId,
   });
+  if (error) throw error;
+}
+
+export async function isAdmin() {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc("ryoko_is_admin");
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function saveAccountProfile(
+  displayName: string,
+  avatarColor: string,
+) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_save_account_profile", {
+    p_display_name: displayName,
+    p_avatar_color: avatarColor,
+  });
+  if (error) throw error;
+}
+
+export async function getAccountProfile() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("ryoko_get_account_profile");
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
+export async function archiveAdminPlan(tripId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_admin_archive_trip", {
+    p_trip: tripId,
+  });
+  if (error) throw error;
+}
+
+export async function restoreAdminPlan(tripId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_admin_restore_trip", {
+    p_trip: tripId,
+  });
+  if (error) throw error;
+}
+
+export async function unlinkPlan(tripId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_unlink_account_trip", {
+    p_trip: tripId,
+  });
+  if (error) throw error;
+}
+
+export async function exportAccountData() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("ryoko_export_account_data");
+  if (error) throw error;
+  return data;
+}
+
+export async function requestAccountDeletion() {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_request_account_deletion");
   if (error) throw error;
 }

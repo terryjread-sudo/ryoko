@@ -226,6 +226,50 @@
   padding: 6px 8px;
 }
 
+.profile-summary {
+  align-items: center;
+  display: flex;
+  gap: 13px;
+  margin: 16px 0;
+}
+
+.profile-avatar {
+  border-radius: 50%;
+  color: white;
+  display: grid;
+  font-weight: 700;
+  height: 46px;
+  place-items: center;
+  width: 46px;
+}
+
+.profile-summary b,
+.profile-summary small {
+  display: block;
+}
+
+.profile-summary small {
+  color: #927f79;
+  font-size: 0.75rem;
+  margin-top: 3px;
+}
+
+.plan-actions,
+.plan-row > span {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.plan-open {
+  background: transparent;
+  border: 0;
+  color: #735fa6;
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 4px;
+}
+
 .instagram-preview small,
 .instagram-preview span {
   color: #927f79;
