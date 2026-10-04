@@ -255,11 +255,13 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase) return;
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => setAccountUser(data.session?.user ?? null));
+    void supabase.auth.getSession().then(({ data }) => {
+      setAccountUser(data.session?.user ?? null);
+      if (data.session?.user && !getStoredSession()) setModal("create");
+    });
     const { data } = supabase.auth.onAuthStateChange((_event, authSession) => {
       setAccountUser(authSession?.user ?? null);
+      if (authSession?.user && !getStoredSession()) setModal("create");
     });
     return () => data.subscription.unsubscribe();
   }, []);
@@ -754,22 +756,6 @@ export default function App() {
           <div className="heading">
             <div>
               <p className="eyebrow">YOUR ITINERARY</p>
-              {days[active] && (
-                <label className="selected-date">
-                  Selected date{" "}
-                  <input
-                    type="date"
-                    min={journeyStart}
-                    max={journeyEnd}
-                    value={days[active].date}
-                    onChange={(e) => updateDay(active, "date", e.target.value)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.currentTarget.showPicker?.();
-                    }}
-                  />
-                </label>
-              )}
               <h2>
                 Let’s make it <em>happen</em>.
               </h2>

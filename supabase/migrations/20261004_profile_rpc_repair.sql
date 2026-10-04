@@ -1,5 +1,5 @@
 -- Apply this repair if the account migration was partially applied.
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto schema extensions;
 create table if not exists public.ryoko_account_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
@@ -75,9 +75,9 @@ returns void language plpgsql security definer set search_path = public, extensi
 begin
   if auth.uid() is null then raise exception 'Sign in required'; end if;
   if not exists (
-    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    select 1 from public.ryoko_trips t where t.id = p_trip and extensions.crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
     union all
-    select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+    select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and extensions.crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
   ) then raise exception 'Invalid journey code'; end if;
   insert into public.ryoko_account_trips(user_id, trip_id, access_code)
   values (auth.uid(), p_trip, lower(trim(p_code)))
@@ -89,8 +89,8 @@ create or replace function public.ryoko_delete_day(p_code text, p_trip uuid, p_d
 returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not exists (
-    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
-    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+    select 1 from public.ryoko_trips t where t.id = p_trip and extensions.crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and extensions.crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
   ) then raise exception 'Invalid journey code'; end if;
   delete from public.ryoko_trip_days where id = p_day and trip_id = p_trip;
 end; $$;
@@ -109,7 +109,7 @@ create or replace function public.ryoko_list_day_items(p_code text, p_trip uuid,
 returns setof public.ryoko_day_items language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not exists (
-    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    select 1 from public.ryoko_trips t where t.id = p_trip and extensions.crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
     union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
   ) then raise exception 'Invalid journey code'; end if;
   return query select i.* from public.ryoko_day_items i where i.day_id = p_day and i.kind = 'instagram' order by i.sort_order, i.created_at;
@@ -126,7 +126,7 @@ create or replace function public.ryoko_delete_item(p_code text, p_trip uuid, p_
 returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not exists (
-    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    select 1 from public.ryoko_trips t where t.id = p_trip and extensions.crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
     union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
   ) then raise exception 'Invalid journey code'; end if;
   delete from public.ryoko_day_items where id = p_item;
