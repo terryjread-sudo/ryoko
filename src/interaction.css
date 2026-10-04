@@ -337,6 +337,8 @@
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr auto auto auto;
+  grid-template-rows: auto auto;
+  align-content: start;
   overflow: hidden;
   padding: 6px;
 }
