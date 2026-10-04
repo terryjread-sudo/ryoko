@@ -13,6 +13,16 @@ import {
   type RyokoSession,
 } from "./lib/ryoko";
 import { resolveInstagramUrl, type InstagramPreview } from "./lib/instagram";
+import { supabase } from "./lib/supabase";
+import {
+  deleteAdminPlan,
+  linkCurrentTrip,
+  listAccountPlans,
+  listAdminPlans,
+  requestAccountLink,
+  signInWithGithub,
+  type AccountPlan,
+} from "./lib/account";
 
 type Day = {
   id?: string;
@@ -54,7 +64,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(0);
   const [modal, setModal] = useState<
-    "start" | "join" | "create" | "invite" | "code" | null
+    "start" | "join" | "create" | "invite" | "code" | "account" | null
   >(() => (getStoredSession() ? null : "start"));
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -74,12 +84,60 @@ export default function App() {
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState("");
   const [useInstagramLocation, setUseInstagramLocation] = useState(false);
+  const [accountUser, setAccountUser] = useState<{ email?: string } | null>(
+    null,
+  );
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountMessage, setAccountMessage] = useState("");
+  const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
+  const [adminPlans, setAdminPlans] = useState<AccountPlan[]>([]);
 
   const journeyStart = session?.startDate || from || undefined;
   const journeyEnd = session?.endDate || to || undefined;
   const isJourneyDate = (value: string) =>
     (!journeyStart || value >= journeyStart) &&
     (!journeyEnd || value <= journeyEnd);
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => setAccountUser(data.session?.user ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      setAccountUser(authSession?.user ?? null);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const openAccount = async () => {
+    setModal("account");
+    setAccountMessage("");
+    if (!accountUser) return;
+    try {
+      setAccountPlans(await listAccountPlans());
+      setAdminPlans(await listAdminPlans());
+    } catch (e) {
+      setAccountMessage((e as Error).message);
+    }
+  };
+  const sendAccountLink = async () => {
+    try {
+      await requestAccountLink(accountEmail);
+      setAccountMessage("Check your email for a secure sign-in link.");
+    } catch (e) {
+      setAccountMessage((e as Error).message);
+    }
+  };
+  const connectCurrentJourney = async () => {
+    if (!session || !accountUser) return;
+    try {
+      await linkCurrentTrip(session.tripId, session.code);
+      setAccountMessage("This journey is now linked to your account.");
+      setAccountPlans(await listAccountPlans());
+    } catch (e) {
+      setAccountMessage((e as Error).message);
+    }
+  };
 
   useEffect(() => {
     if (!session) {
@@ -320,10 +378,12 @@ export default function App() {
           </button>
           <button
             className="avatar owner"
-            onClick={() => setModal("join")}
-            aria-label="Switch journey"
+            onClick={() => void openAccount()}
+            aria-label="Open account"
           >
-            {session?.displayName?.[0] ?? "?"}
+            {accountUser?.email?.[0]?.toUpperCase() ??
+              session?.displayName?.[0] ??
+              "?"}
           </button>
         </div>
       </header>
@@ -631,6 +691,115 @@ export default function App() {
             >
               Start a new journey
             </button>
+          </div>
+        </div>
+      )}
+      {modal === "account" && (
+        <div className="backdrop">
+          <div className="modal account-modal">
+            <button className="close" onClick={() => setModal(null)}>
+              ×
+            </button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">YOUR RYŌKŌ ACCOUNT</p>
+            <h2>
+              Keep every journey <em>close.</em>
+            </h2>
+            {!accountUser ? (
+              <>
+                <p className="modal-copy">
+                  Sign in to keep your plans and secret journey codes together.
+                  You can continue using codes without an account.
+                </p>
+                <label>
+                  Email address
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="primary full"
+                  onClick={() => void sendAccountLink()}
+                  disabled={!accountEmail}
+                >
+                  Email me a sign-in link
+                </button>
+                <button
+                  className="secondary full"
+                  onClick={() => void signInWithGithub()}
+                >
+                  Continue with GitHub
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="modal-copy">
+                  Signed in as <b>{accountUser.email}</b>
+                </p>
+                {session && (
+                  <button
+                    className="secondary full"
+                    onClick={() => void connectCurrentJourney()}
+                  >
+                    Link this journey to my account
+                  </button>
+                )}
+                <h3 className="account-heading">My plans</h3>
+                {accountPlans.length ? (
+                  accountPlans.map((plan) => (
+                    <div className="plan-row" key={plan.trip_id}>
+                      <b>{plan.name}</b>
+                      <small>
+                        {plan.start_date} → {plan.end_date}
+                      </small>
+                    </div>
+                  ))
+                ) : (
+                  <p className="account-empty">No linked plans yet.</p>
+                )}
+                {adminPlans.length > 0 && (
+                  <>
+                    <h3 className="account-heading">Admin: all plans</h3>
+                    {adminPlans.map((plan) => (
+                      <div className="plan-row" key={plan.trip_id}>
+                        <div>
+                          <b>{plan.name}</b>
+                          <small>
+                            {plan.start_date} → {plan.end_date}
+                          </small>
+                        </div>
+                        <button
+                          className="delete-plan"
+                          onClick={async () => {
+                            if (!window.confirm(`Remove ${plan.name}?`)) return;
+                            await deleteAdminPlan(plan.trip_id);
+                            setAdminPlans((items) =>
+                              items.filter(
+                                (item) => item.trip_id !== plan.trip_id,
+                              ),
+                            );
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {accountMessage && (
+                  <p className="form-error">{accountMessage}</p>
+                )}
+                <button
+                  className="secondary full"
+                  onClick={() => void supabase?.auth.signOut()}
+                >
+                  Sign out
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
