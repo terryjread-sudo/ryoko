@@ -116,6 +116,69 @@
   margin-left: auto;
 }
 
+.real-map {
+  background: #dce9df;
+  border-radius: 18px;
+  height: 430px;
+  overflow: hidden;
+  position: relative;
+}
+
+.real-map svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.real-pin {
+  cursor: pointer;
+}
+.real-pin circle {
+  fill: #735fa6;
+  stroke: #fff;
+  stroke-width: 3;
+}
+.real-pin text {
+  fill: #fff;
+  font-size: 13px;
+}
+.real-pin .real-pin-label {
+  fill: #403744;
+  font-size: 12px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #fffaf5;
+  stroke-width: 4px;
+}
+.map-controls {
+  background: #fffaf5dd;
+  border: 1px solid #eadfd7;
+  border-radius: 9px;
+  display: grid;
+  gap: 3px;
+  padding: 4px;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+}
+.map-controls button {
+  background: #fff;
+  border: 0;
+  border-radius: 5px;
+  color: #735fa6;
+  cursor: pointer;
+  font-size: 18px;
+  height: 30px;
+  width: 30px;
+}
+.map-credit {
+  bottom: 6px;
+  color: #665b69;
+  font-size: 9px;
+  position: absolute;
+  right: 8px;
+}
+
 .drag-handle {
   cursor: grab;
   font-size: 1.2rem;
@@ -382,6 +445,13 @@
   cursor: pointer;
   font-size: 0.72rem;
   padding: 4px;
+}
+
+.inline-admin-legacy {
+  display: none;
+}
+.admin-modal {
+  max-width: 600px;
 }
 
 .instagram-preview small,

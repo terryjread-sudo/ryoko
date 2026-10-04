@@ -75,6 +75,120 @@ const emojis: Record<string, string> = {
   Sapporo: "❄️",
   Fukuoka: "🍜",
 };
+const destinationCoords: Record<string, [number, number]> = {
+  Tokyo: [35.6762, 139.6503],
+  Kyoto: [35.0116, 135.7681],
+  Osaka: [34.6937, 135.5023],
+  Nara: [34.6851, 135.8048],
+  Hiroshima: [34.3853, 132.4553],
+  Hakone: [35.2324, 139.1069],
+  Sapporo: [43.0618, 141.3545],
+  Fukuoka: [33.5902, 130.4017],
+};
+
+function JapanMap({
+  days,
+  onSelect,
+}: {
+  days: Day[];
+  onSelect: (index: number) => void;
+}) {
+  const [zoom, setZoom] = useState(5);
+  const width = 800;
+  const height = 430;
+  const points = days.map((day, index) => ({
+    day,
+    index,
+    coord:
+      destinationCoords[day.city] ?? ([35.6762, 139.6503] as [number, number]),
+  }));
+  const center = points.length
+    ? (points
+        .reduce(
+          (sum, point) => [sum[0] + point.coord[0], sum[1] + point.coord[1]],
+          [0, 0],
+        )
+        .map((value) => value / points.length) as [number, number])
+    : ([36, 137] as [number, number]);
+  const project = (lat: number, lon: number, level: number) => {
+    const scale = 256 * 2 ** level;
+    const x = ((lon + 180) / 360) * scale;
+    const sin = Math.sin((lat * Math.PI) / 180);
+    const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale;
+    return [x, y] as [number, number];
+  };
+  const centerPoint = project(center[0], center[1], zoom);
+  const tiles = Array.from({ length: 25 }, (_, index) => {
+    const col = (index % 5) - 2;
+    const row = Math.floor(index / 5) - 2;
+    const tileX = Math.floor(centerPoint[0] / 256) + col;
+    const tileY = Math.floor(centerPoint[1] / 256) + row;
+    return {
+      tileX,
+      tileY,
+      x: width / 2 + tileX * 256 - centerPoint[0],
+      y: height / 2 + tileY * 256 - centerPoint[1],
+    };
+  });
+  return (
+    <div className="real-map">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Interactive map of Japan"
+      >
+        <rect width={width} height={height} fill="#dce9df" />
+        {tiles.map((tile) => (
+          <image
+            key={`${tile.tileX}-${tile.tileY}`}
+            href={`https://tile.openstreetmap.org/${zoom}/${tile.tileX}/${tile.tileY}.png`}
+            x={tile.x}
+            y={tile.y}
+            width="256"
+            height="256"
+          />
+        ))}
+        {points.map(({ day, index, coord }) => {
+          const point = project(coord[0], coord[1], zoom);
+          return (
+            <g
+              key={day.id ?? index}
+              className="real-pin"
+              transform={`translate(${width / 2 + point[0] - centerPoint[0]},${height / 2 + point[1] - centerPoint[1]})`}
+              onClick={() => onSelect(index)}
+            >
+              <circle r="13" />
+              <text y="4" textAnchor="middle">
+                ✦
+              </text>
+              <text className="real-pin-label" y="29" textAnchor="middle">
+                {day.city || "Choose a destination"}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="map-controls">
+        <button
+          onClick={() => setZoom((value) => Math.min(8, value + 1))}
+          aria-label="Zoom in"
+        >
+          ＋
+        </button>
+        <button
+          onClick={() => setZoom((value) => Math.max(3, value - 1))}
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <button onClick={() => setZoom(5)} aria-label="Reset map zoom">
+          ⌂
+        </button>
+      </div>
+      <small className="map-credit">© OpenStreetMap contributors</small>
+    </div>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState<RyokoSession | null>(() =>
@@ -115,6 +229,7 @@ export default function App() {
   const [accountMessage, setAccountMessage] = useState("");
   const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
   const [adminPlans, setAdminPlans] = useState<AccountPlan[]>([]);
+  const [adminModal, setAdminModal] = useState(false);
   const [accountProfile, setAccountProfile] = useState({
     displayName: "",
     avatarColor: "#735fa6",
@@ -472,14 +587,10 @@ export default function App() {
       return setError("Add a name, dates, and at least one destination.");
     try {
       const created = await createTrip(tripName, from, to, name);
-      setSession({ ...created, startDate: from, endDate: to });
-      if (accountUser) await linkCurrentTrip(created.tripId, created.code);
-      setJourneyName(tripName);
-      for (const city of chosen) {
-        const saved = await saveDay(created, { date: from, city, title: "" });
-        setDays((current) => [
-          ...current,
-          {
+      const createdDays = await Promise.all(
+        chosen.map(async (city) => {
+          const saved = await saveDay(created, { date: from, city, title: "" });
+          return {
             id: saved?.id,
             date: from,
             city,
@@ -487,9 +598,14 @@ export default function App() {
             title: "",
             items: [],
             instagramItems: [],
-          },
-        ]);
-      }
+          } as Day;
+        }),
+      );
+      setSession({ ...created, startDate: from, endDate: to });
+      if (accountUser) await linkCurrentTrip(created.tripId, created.code);
+      setJourneyName(tripName);
+      setDays(createdDays);
+      setActive(0);
       setModal("code");
     } catch (e) {
       setError((e as Error).message);
@@ -768,7 +884,7 @@ export default function App() {
                       openInstagram(index);
                     }}
                   >
-                    {day.instagramUrl
+                    {day.instagramItems.length
                       ? "View saved Instagram inspiration"
                       : "＋ Add Instagram post or Reel"}
                   </button>
@@ -868,23 +984,7 @@ export default function App() {
               ⌖
             </button>
           </div>
-          <div className="map">
-            <div className="mountain">⌁</div>
-            {days.map((day, index) => (
-              <button
-                key={day.id ?? index}
-                className={`pin ${index % 2 ? "kyoto" : "tokyo"}`}
-                onClick={() => setActive(index)}
-              >
-                ✦<small>{day.city || "Choose a destination"}</small>
-              </button>
-            ))}
-            <span className="japan">
-              JAPAN
-              <br />
-              <small>本州</small>
-            </span>
-          </div>
+          <JapanMap days={days} onSelect={setActive} />
           <div className="legend">
             {days.length
               ? `${cities} destinations in your journey`
@@ -1055,81 +1155,91 @@ export default function App() {
                   <p className="account-empty">No linked plans yet.</p>
                 )}
                 {accountIsAdmin && (
-                  <>
-                    <h3 className="account-heading">Admin: all plans</h3>
-                    {!adminPlans.length && (
-                      <p className="account-empty">No plans found.</p>
-                    )}
-                    {adminPlans.map((plan) => (
-                      <div className="plan-row" key={plan.trip_id}>
-                        <div>
-                          <b>{plan.name}</b>
-                          <small>
-                            {plan.start_date} → {plan.end_date}
-                          </small>
-                        </div>
-                        <div className="plan-actions">
-                          <button
-                            className="delete-plan"
-                            onClick={async () => {
-                              if (!window.confirm(`Archive ${plan.name}?`))
-                                return;
-                              await archiveAdminPlan(plan.trip_id);
-                              setAdminPlans((items) =>
-                                items.map((item) =>
-                                  item.trip_id === plan.trip_id
-                                    ? {
-                                        ...item,
-                                        archived_at: new Date().toISOString(),
-                                      }
-                                    : item,
-                                ),
-                              );
-                            }}
-                          >
-                            {plan.archived_at ? "Archived" : "Archive"}
-                          </button>
-                          {plan.archived_at && (
+                  <button
+                    className="primary full"
+                    onClick={() => setAdminModal(true)}
+                  >
+                    Open admin: all plans
+                  </button>
+                )}
+                <div className="inline-admin-legacy">
+                  {accountIsAdmin && (
+                    <>
+                      <h3 className="account-heading">Admin: all plans</h3>
+                      {!adminPlans.length && (
+                        <p className="account-empty">No plans found.</p>
+                      )}
+                      {adminPlans.map((plan) => (
+                        <div className="plan-row" key={plan.trip_id}>
+                          <div>
+                            <b>{plan.name}</b>
+                            <small>
+                              {plan.start_date} → {plan.end_date}
+                            </small>
+                          </div>
+                          <div className="plan-actions">
                             <button
-                              className="plan-open"
+                              className="delete-plan"
                               onClick={async () => {
-                                await restoreAdminPlan(plan.trip_id);
+                                if (!window.confirm(`Archive ${plan.name}?`))
+                                  return;
+                                await archiveAdminPlan(plan.trip_id);
                                 setAdminPlans((items) =>
                                   items.map((item) =>
                                     item.trip_id === plan.trip_id
-                                      ? { ...item, archived_at: null }
+                                      ? {
+                                          ...item,
+                                          archived_at: new Date().toISOString(),
+                                        }
                                       : item,
                                   ),
                                 );
                               }}
                             >
-                              Restore
+                              {plan.archived_at ? "Archived" : "Archive"}
                             </button>
-                          )}
-                          <button
-                            className="delete-plan"
-                            onClick={async () => {
-                              if (
-                                !window.confirm(
-                                  `Permanently delete ${plan.name}?`,
+                            {plan.archived_at && (
+                              <button
+                                className="plan-open"
+                                onClick={async () => {
+                                  await restoreAdminPlan(plan.trip_id);
+                                  setAdminPlans((items) =>
+                                    items.map((item) =>
+                                      item.trip_id === plan.trip_id
+                                        ? { ...item, archived_at: null }
+                                        : item,
+                                    ),
+                                  );
+                                }}
+                              >
+                                Restore
+                              </button>
+                            )}
+                            <button
+                              className="delete-plan"
+                              onClick={async () => {
+                                if (
+                                  !window.confirm(
+                                    `Permanently delete ${plan.name}?`,
+                                  )
                                 )
-                              )
-                                return;
-                              await deleteAdminPlan(plan.trip_id);
-                              setAdminPlans((items) =>
-                                items.filter(
-                                  (item) => item.trip_id !== plan.trip_id,
-                                ),
-                              );
-                            }}
-                          >
-                            Delete
-                          </button>
+                                  return;
+                                await deleteAdminPlan(plan.trip_id);
+                                setAdminPlans((items) =>
+                                  items.filter(
+                                    (item) => item.trip_id !== plan.trip_id,
+                                  ),
+                                );
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </>
-                )}
+                      ))}
+                    </>
+                  )}
+                </div>
                 {accountMessage && (
                   <p className="form-error">{accountMessage}</p>
                 )}
@@ -1158,6 +1268,84 @@ export default function App() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+      {adminModal && accountIsAdmin && (
+        <div className="backdrop" onClick={() => setAdminModal(false)}>
+          <div
+            className="modal admin-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="close" onClick={() => setAdminModal(false)}>
+              ×
+            </button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">ADMINISTRATION</p>
+            <h2>
+              All <em>plans.</em>
+            </h2>
+            <p className="modal-copy">
+              Review, archive, restore, or permanently remove journeys.
+            </p>
+            {!adminPlans.length && (
+              <p className="account-empty">No plans found.</p>
+            )}
+            {adminPlans.map((plan) => (
+              <div className="plan-row" key={plan.trip_id}>
+                <div>
+                  <b>{plan.name}</b>
+                  <small>
+                    {plan.start_date} → {plan.end_date}
+                    {plan.archived_at ? " · Archived" : ""}
+                  </small>
+                </div>
+                <div className="plan-actions">
+                  <button
+                    className="plan-open"
+                    onClick={async () => {
+                      if (plan.archived_at) {
+                        await restoreAdminPlan(plan.trip_id);
+                        setAdminPlans((items) =>
+                          items.map((item) =>
+                            item.trip_id === plan.trip_id
+                              ? { ...item, archived_at: null }
+                              : item,
+                          ),
+                        );
+                      } else {
+                        await archiveAdminPlan(plan.trip_id);
+                        setAdminPlans((items) =>
+                          items.map((item) =>
+                            item.trip_id === plan.trip_id
+                              ? {
+                                  ...item,
+                                  archived_at: new Date().toISOString(),
+                                }
+                              : item,
+                          ),
+                        );
+                      }
+                    }}
+                  >
+                    {plan.archived_at ? "Restore" : "Archive"}
+                  </button>
+                  <button
+                    className="delete-plan"
+                    onClick={async () => {
+                      if (!window.confirm(`Permanently delete ${plan.name}?`))
+                        return;
+                      await deleteAdminPlan(plan.trip_id);
+                      setAdminPlans((items) =>
+                        items.filter((item) => item.trip_id !== plan.trip_id),
+                      );
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
