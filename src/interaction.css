@@ -159,6 +159,34 @@
   margin: 8px 0 0;
 }
 
+.date-label {
+  background: transparent;
+  border: 0;
+  color: #403744;
+  cursor: pointer;
+  font: 600 1.05rem "Playfair Display";
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: #e5b8ad;
+  text-underline-offset: 4px;
+}
+
+.date-label:hover,
+.date-label:focus-visible {
+  color: #b55762;
+  outline: 2px solid #efc2c4;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.date-picker-input {
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
 .instagram-preview small,
 .instagram-preview span {
   color: #927f79;

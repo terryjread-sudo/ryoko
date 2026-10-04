@@ -451,20 +451,30 @@ export default function App() {
                   </div>
                 )}
                 <div className="date">
+                  <button
+                    className="date-label"
+                    type="button"
+                    title="Change this day’s date"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      (
+                        e.currentTarget
+                          .nextElementSibling as HTMLInputElement | null
+                      )?.showPicker?.();
+                    }}
+                  >
+                    {day.date.slice(8, 10)}/{day.date.slice(5, 7)}
+                  </button>
                   <input
-                    className="date-input"
+                    className="date-picker-input"
                     type="date"
                     min={journeyStart}
                     max={journeyEnd}
                     value={day.date}
+                    aria-label={`Change date for day ${index + 1}`}
                     onChange={(e) => updateDay(index, "date", e.target.value)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.currentTarget.showPicker?.();
-                    }}
+                    onClick={(e) => e.stopPropagation()}
                   />
-                  <b>{day.date.slice(8, 10)}</b>
-                  <small>{day.date.slice(5, 7)}</small>
                 </div>
                 <div className="card">
                   <div className="card-top">
