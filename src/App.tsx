@@ -85,6 +85,15 @@ const destinationCoords: Record<string, [number, number]> = {
   Sapporo: [43.0618, 141.3545],
   Fukuoka: [33.5902, 130.4017],
 };
+const destinationMatches = (value: string) => {
+  const query = value.trim().toLowerCase();
+  if (!query) return destinations.slice(0, 5);
+  return destinations.filter(
+    (city) =>
+      city.toLowerCase().includes(query) ||
+      query.includes(city.toLowerCase().slice(0, 3)),
+  );
+};
 
 function JapanMap({
   days,
@@ -230,6 +239,7 @@ export default function App() {
   const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
   const [adminPlans, setAdminPlans] = useState<AccountPlan[]>([]);
   const [adminModal, setAdminModal] = useState(false);
+  const [destinationFocus, setDestinationFocus] = useState<number | null>(null);
   const [accountProfile, setAccountProfile] = useState({
     displayName: "",
     avatarColor: "#735fa6",
@@ -269,7 +279,12 @@ export default function App() {
       setAccountPlans(await listAccountPlans());
       if (admin) setAdminPlans(await listAdminPlans());
     } catch (e) {
-      setAccountMessage((e as Error).message);
+      const message = (e as Error).message;
+      setAccountMessage(
+        message.includes("Invalid journey code") || message.includes("crypt")
+          ? "The account-link database migration still needs to be applied in Supabase."
+          : message,
+      );
     }
   };
   const accountDisplayName =
@@ -351,7 +366,12 @@ export default function App() {
       setAccountMessage("This journey is now linked to your account.");
       setAccountPlans(await listAccountPlans());
     } catch (e) {
-      setAccountMessage((e as Error).message);
+      const message = (e as Error).message;
+      setAccountMessage(
+        message.includes("Invalid journey code") || message.includes("crypt")
+          ? "The account-link database migration still needs to be applied in Supabase."
+          : message,
+      );
     }
   };
 
@@ -606,9 +626,9 @@ export default function App() {
       if (accountUser) {
         try {
           await linkCurrentTrip(created.tripId, created.code);
-        } catch (e) {
-          setError(
-            `Journey created, but account linking needs attention: ${(e as Error).message}`,
+        } catch {
+          setAccountMessage(
+            "Journey created. Link it from your account profile after the account migration is applied.",
           );
         }
       }
@@ -831,8 +851,37 @@ export default function App() {
                         onChange={(e) =>
                           updateDay(index, "city", e.target.value)
                         }
+                        onFocus={() => {
+                          setDestinationFocus(index);
+                          if (!day.city && index > 0 && days[index - 1]?.city)
+                            updateDay(index, "city", days[index - 1].city);
+                        }}
+                        onBlur={() =>
+                          window.setTimeout(
+                            () => setDestinationFocus(null),
+                            150,
+                          )
+                        }
                         onClick={(e) => e.stopPropagation()}
                       />
+                      {destinationFocus === index &&
+                        destinationMatches(day.city).length > 0 && (
+                          <div className="destination-suggestions">
+                            {destinationMatches(day.city).map((city) => (
+                              <button
+                                key={city}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateDay(index, "city", city);
+                                  setDestinationFocus(null);
+                                }}
+                              >
+                                {emojis[city]} {city}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                     </span>
                     <span className="day-actions">
                       <button
