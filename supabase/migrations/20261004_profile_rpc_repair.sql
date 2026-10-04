@@ -6,6 +6,9 @@ create table if not exists public.ryoko_account_profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.ryoko_trips add column if not exists archived_at timestamptz;
+alter table public.ryoko_trips add column if not exists archived_by uuid references auth.users(id) on delete set null;
+
 alter table public.ryoko_account_profiles enable row level security;
 drop policy if exists ryoko_account_profile_owner on public.ryoko_account_profiles;
 create policy ryoko_account_profile_owner on public.ryoko_account_profiles for all
