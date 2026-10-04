@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 export type RyokoSession = {
   tripId: string;
   code: string;
+  journeyName?: string;
   role: "owner" | "editor" | "viewer";
   displayName: string;
   color: string;
@@ -31,6 +32,7 @@ export async function createTrip(
   const session = {
     tripId: data.trip_id,
     code,
+    journeyName: name,
     role: data.role,
     displayName: ownerName,
     color: "#735fa6",
@@ -55,6 +57,7 @@ export async function joinTrip(
   const session = {
     tripId: data.trip_id,
     code: code.trim().toLowerCase(),
+    journeyName: data.name ?? undefined,
     role: data.role,
     displayName: data.display_name,
     color: data.color,
@@ -191,6 +194,30 @@ export async function deleteItem(
         p_trip: session.tripId,
         p_day: dayId,
         p_item: itemId,
+      });
+  if (error) throw error;
+}
+
+export async function moveItem(
+  session: RyokoSession,
+  itemId: string,
+  fromDayId: string,
+  toDayId: string,
+) {
+  if (!supabase || !itemId || fromDayId === toDayId) return;
+  const { error } = session.code
+    ? await supabase.rpc("ryoko_move_item", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_item: itemId,
+        p_from_day: fromDayId,
+        p_to_day: toDayId,
+      })
+    : await supabase.rpc("ryoko_move_account_item", {
+        p_trip: session.tripId,
+        p_item: itemId,
+        p_from_day: fromDayId,
+        p_to_day: toDayId,
       });
   if (error) throw error;
 }

@@ -10,6 +10,7 @@ import {
   joinTrip,
   listDays,
   listInstagramItems,
+  moveItem,
   saveDay,
   saveItem,
   subscribeToTripPresence,
@@ -35,6 +36,7 @@ import {
   signInWithGithub,
   type AccountPlan,
 } from "./lib/account";
+import { japanPlaces, placeSearchTerms, type JapanPlace } from "./data/japanPlaces";
 
 type Day = {
   id?: string;
@@ -54,7 +56,44 @@ type InstagramItem = {
   description?: string;
   author: string;
   thumbnailUrl?: string;
+  places?: string[];
 };
+
+function InstagramMetadata({
+  text,
+  selectedPlaces,
+  onTogglePlace,
+}: {
+  text: string;
+  selectedPlaces: string[];
+  onTogglePlace: (place: JapanPlace) => void;
+}) {
+  const matches = japanPlaces.flatMap((place) =>
+    placeSearchTerms(place).map((term) => ({ place, term })),
+  );
+  const pattern = matches
+    .sort((a, b) => b.term.length - a.term.length)
+    .map(({ term }) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  if (!pattern) return <>{text}</>;
+  const matcher = new RegExp(`(${pattern})`, "giu");
+  return text.split(matcher).map((part, index) => {
+    const match = matches.find(({ term }) => term.toLowerCase() === part.toLowerCase());
+    if (!match) return <span key={`${part}-${index}`}>{part}</span>;
+    const selected = selectedPlaces.includes(match.place.english);
+    return (
+      <button
+        className={`place-highlight ${selected ? "selected" : ""}`}
+        key={`${match.place.english}-${index}`}
+        title={`${match.place.english} · ${match.place.japanese}`}
+        type="button"
+        onClick={() => onTogglePlace(match.place)}
+      >
+        {part}
+      </button>
+    );
+  });
+}
 const destinations = [
   "Tokyo",
   "Kyoto",
@@ -95,6 +134,38 @@ const destinationJapanese: Record<string, string> = {
   Sapporo: "札幌",
   Fukuoka: "福岡",
 };
+const mapPlaceLabels = [
+  ["Tokyo", "東京", 35.6762, 139.6503],
+  ["Yokohama", "横浜", 35.4437, 139.638],
+  ["Kamakura", "鎌倉", 35.3192, 139.5467],
+  ["Hakone", "箱根", 35.2324, 139.1069],
+  ["Mount Fuji", "富士山", 35.3606, 138.7274],
+  ["Nikko", "日光", 36.7199, 139.6982],
+  ["Nagoya", "名古屋", 35.1815, 136.9066],
+  ["Kanazawa", "金沢", 36.5613, 136.6562],
+  ["Takayama", "高山", 36.1408, 137.2522],
+  ["Matsumoto", "松本", 36.238, 137.972],
+  ["Kyoto", "京都", 35.0116, 135.7681],
+  ["Osaka", "大阪", 34.6937, 135.5023],
+  ["Nara", "奈良", 34.6851, 135.8048],
+  ["Kobe", "神戸", 34.6901, 135.1956],
+  ["Himeji", "姫路", 34.8151, 134.6853],
+  ["Hiroshima", "広島", 34.3853, 132.4553],
+  ["Miyajima", "宮島", 34.2956, 132.3197],
+  ["Okayama", "岡山", 34.6551, 133.9195],
+  ["Takamatsu", "高松", 34.3428, 134.0466],
+  ["Matsuyama", "松山", 33.8392, 132.7657],
+  ["Fukuoka", "福岡", 33.5902, 130.4017],
+  ["Nagasaki", "長崎", 32.7503, 129.8777],
+  ["Kumamoto", "熊本", 32.8031, 130.7079],
+  ["Kagoshima", "鹿児島", 31.5966, 130.5571],
+  ["Naha", "那覇", 26.2124, 127.6809],
+  ["Sapporo", "札幌", 43.0618, 141.3545],
+  ["Otaru", "小樽", 43.1907, 140.9947],
+  ["Furano", "富良野", 43.342, 142.383],
+  ["Aomori", "青森", 40.8222, 140.7474],
+  ["Sendai", "仙台", 38.2682, 140.8694],
+] as const;
 const destinationMatches = (value: string) => {
   const query = value.trim().toLowerCase();
   if (!query) return destinations.slice(0, 5);
@@ -109,10 +180,12 @@ function JapanMap({
   days,
   onSelect,
   labelLanguage,
+  provider,
 }: {
   days: Day[];
   onSelect: (index: number) => void;
   labelLanguage: "english" | "japanese";
+  provider: "openstreetmap" | "google";
 }) {
   const [zoom, setZoom] = useState(5);
   const width = 800;
@@ -122,6 +195,11 @@ function JapanMap({
     index,
     coord:
       destinationCoords[day.city] ?? ([35.6762, 139.6503] as [number, number]),
+  }));
+  const labelPoints = mapPlaceLabels.map(([english, japanese, lat, lon]) => ({
+    english,
+    japanese,
+    coord: [lat, lon] as [number, number],
   }));
   const center = points.length
     ? (points
@@ -139,6 +217,28 @@ function JapanMap({
     return [x, y] as [number, number];
   };
   const centerPoint = project(center[0], center[1], zoom);
+  const googleLanguage = labelLanguage === "japanese" ? "ja" : "en";
+  const googleMapUrl = `https://www.google.com/maps?q=${center[0]},${center[1]}&z=${zoom + 1}&hl=${googleLanguage}&output=embed`;
+  if (provider === "google") {
+    return (
+      <div className="real-map google-map">
+        <iframe
+          title={`Google Maps of Japan in ${labelLanguage} labels`}
+          src={googleMapUrl}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        <a
+          className="google-map-link"
+          href={`https://www.google.com/maps/search/?api=1&query=${center[0]},${center[1]}&hl=${googleLanguage}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open in Google Maps ↗
+        </a>
+      </div>
+    );
+  }
   const tiles = Array.from({ length: 25 }, (_, index) => {
     const col = (index % 5) - 2;
     const row = Math.floor(index / 5) - 2;
@@ -169,6 +269,20 @@ function JapanMap({
             height="256"
           />
         ))}
+        {labelPoints.map(({ english, japanese, coord }) => {
+          const point = project(coord[0], coord[1], zoom);
+          return (
+            <text
+              className="map-place-label"
+              key={english}
+              x={width / 2 + point[0] - centerPoint[0]}
+              y={height / 2 + point[1] - centerPoint[1]}
+              textAnchor="middle"
+            >
+              {labelLanguage === "japanese" ? japanese : english}
+            </text>
+          );
+        })}
         {points.map(({ day, index, coord }) => {
           const point = project(coord[0], coord[1], zoom);
           return (
@@ -222,11 +336,20 @@ export default function App() {
     getStoredSession(),
   );
   const [days, setDays] = useState<Day[]>([]);
-  const [journeyName, setJourneyName] = useState("Your Japan journey");
+  const [journeyName, setJourneyName] = useState(
+    () => getStoredSession()?.journeyName ?? "Your Japan journey",
+  );
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(0);
   const [modal, setModal] = useState<
-    "start" | "join" | "create" | "invite" | "code" | "account" | null
+    | "start"
+    | "join"
+    | "create"
+    | "invite"
+    | "code"
+    | "account"
+    | "journeys"
+    | null
   >(() => (getStoredSession() ? null : "start"));
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -245,6 +368,12 @@ export default function App() {
     useState<InstagramPreview | null>(null);
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState("");
+  const [instagramPlaces, setInstagramPlaces] = useState<string[]>([]);
+  const [draggedInstagram, setDraggedInstagram] = useState<{
+    dayIndex: number;
+    itemId: string;
+  } | null>(null);
+  const [instagramDragOver, setInstagramDragOver] = useState<number | null>(null);
   const [useInstagramLocation, setUseInstagramLocation] = useState(false);
   const [accountUser, setAccountUser] = useState<{
     email?: string;
@@ -267,6 +396,9 @@ export default function App() {
   const [mapLabelLanguage, setMapLabelLanguage] = useState<
     "english" | "japanese"
   >("english");
+  const [mapProvider, setMapProvider] = useState<
+    "openstreetmap" | "google"
+  >("openstreetmap");
 
   const journeyStart = session?.startDate || from || undefined;
   const journeyEnd = session?.endDate || to || undefined;
@@ -354,6 +486,7 @@ export default function App() {
     const accountSession: RyokoSession = {
       tripId: plan.trip_id,
       code: "",
+      journeyName: plan.name,
       role: "owner",
       displayName: accountDisplayName,
       color: accountProfile.avatarColor,
@@ -510,6 +643,7 @@ export default function App() {
     setInstagramUrl("");
     setInstagramPreview(null);
     setInstagramError("");
+    setInstagramPlaces([]);
     setUseInstagramLocation(false);
   };
   const previewInstagram = async () => {
@@ -530,6 +664,13 @@ export default function App() {
       setInstagramLoading(false);
     }
   };
+  const toggleInstagramPlace = (place: JapanPlace) => {
+    setInstagramPlaces((current) =>
+      current.includes(place.english)
+        ? current.filter((name) => name !== place.english)
+        : [...current, place.english],
+    );
+  };
   const saveInstagram = async () => {
     const index = instagramDay;
     const day = index === null ? undefined : days[index];
@@ -542,6 +683,7 @@ export default function App() {
         author: instagramPreview.author,
         thumbnailUrl: instagramPreview.thumbnailUrl,
         location: instagramPreview.location,
+        places: instagramPlaces,
       });
       const saved = await saveItem(session, {
         dayId: day.id,
@@ -563,6 +705,7 @@ export default function App() {
                     description: instagramPreview.description,
                     author: instagramPreview.author,
                     thumbnailUrl: instagramPreview.thumbnailUrl,
+                    places: instagramPlaces,
                   },
                 ],
                 subLocation: useInstagramLocation
@@ -575,6 +718,41 @@ export default function App() {
       setInstagramDay(null);
     } catch (e) {
       setInstagramError((e as Error).message);
+    }
+  };
+  const moveInstagram = async (targetDayIndex: number) => {
+    if (!draggedInstagram || draggedInstagram.dayIndex === targetDayIndex) {
+      setDraggedInstagram(null);
+      setInstagramDragOver(null);
+      return;
+    }
+    const sourceDay = days[draggedInstagram.dayIndex];
+    const targetDay = days[targetDayIndex];
+    const item = sourceDay?.instagramItems.find(
+      (entry) => entry.id === draggedInstagram.itemId,
+    );
+    if (!sourceDay?.id || !targetDay?.id || !item?.id || !session) return;
+    try {
+      await moveItem(session, item.id, sourceDay.id, targetDay.id);
+      setDays((current) =>
+        current.map((day, index) => {
+          if (index === draggedInstagram.dayIndex)
+            return {
+              ...day,
+              instagramItems: day.instagramItems.filter(
+                (entry) => entry.id !== item.id,
+              ),
+            };
+          if (index === targetDayIndex)
+            return { ...day, instagramItems: [...day.instagramItems, item] };
+          return day;
+        }),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDraggedInstagram(null);
+      setInstagramDragOver(null);
     }
   };
   const addDay = async () => {
@@ -666,10 +844,16 @@ export default function App() {
           } as Day;
         }),
       );
-      setSession({ ...created, startDate: from, endDate: to });
+      const activeSession = {
+        ...created,
+        journeyName: tripName,
+        startDate: from,
+        endDate: to,
+      };
+      setSession(activeSession);
       localStorage.setItem(
         "ryoko_session",
-        JSON.stringify({ ...created, startDate: from, endDate: to }),
+        JSON.stringify(activeSession),
       );
       if (accountUser) {
         try {
@@ -693,7 +877,13 @@ export default function App() {
     if (!name || !code) return;
     try {
       const joined = await joinTrip(code, name);
-      setSession(joined);
+      const activeSession = {
+        ...joined,
+        journeyName: joined.journeyName || "Your Japan journey",
+      };
+      setSession(activeSession);
+      setJourneyName(activeSession.journeyName);
+      localStorage.setItem("ryoko_session", JSON.stringify(activeSession));
       if (accountUser) {
         try {
           await linkCurrentTrip(joined.tripId, joined.code);
@@ -724,7 +914,10 @@ export default function App() {
         >
           <span>✿</span> ryōkō <small>旅行</small>
         </button>
-        <button className="trip-switcher" onClick={() => setModal("join")}>
+        <button
+          className="trip-switcher"
+          onClick={() => setModal(accountUser ? "journeys" : "join")}
+        >
           <i /> <b>{journeyName}</b>⌄
         </button>
         <div className="top-actions">
@@ -836,18 +1029,24 @@ export default function App() {
                   event.dataTransfer.setData("text/plain", String(index));
                   setDragged(index);
                 }}
-                onDragEnter={() => setDragOver(index)}
+                onDragEnter={() => {
+                  if (draggedInstagram) setInstagramDragOver(index);
+                  else setDragOver(index);
+                }}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setDragOver(index);
+                  if (draggedInstagram) setInstagramDragOver(index);
+                  else setDragOver(index);
                 }}
                 onDragEnd={() => {
                   setDragged(null);
                   setDragOver(null);
+                  setInstagramDragOver(null);
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
-                  moveDay(index);
+                  if (draggedInstagram) void moveInstagram(index);
+                  else moveDay(index);
                 }}
                 onClick={() => setActive(index)}
               >
@@ -985,16 +1184,26 @@ export default function App() {
                       openInstagram(index);
                     }}
                   >
-                    {day.instagramItems.length
-                      ? "View saved Instagram inspiration"
-                      : "＋ Add Instagram post or Reel"}
+                    Add Instagram inspiration
                   </button>
                   {!!day.instagramItems.length && (
                     <div className="instagram-items">
                       {day.instagramItems.map((item) => (
                         <article
-                          className="instagram-item"
+                          className={`instagram-item ${instagramDragOver === index ? "instagram-drop-target" : ""}`}
                           key={item.id ?? item.url}
+                          draggable={!!item.id}
+                          onDragStart={(event) => {
+                            event.stopPropagation();
+                            if (!item.id) return;
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/instagram", item.id);
+                            setDraggedInstagram({ dayIndex: index, itemId: item.id });
+                          }}
+                          onDragEnd={() => {
+                            setDraggedInstagram(null);
+                            setInstagramDragOver(null);
+                          }}
                         >
                           <a href={item.url} target="_blank" rel="noreferrer">
                             <>
@@ -1008,6 +1217,13 @@ export default function App() {
                               <span>
                                 <b>{item.title}</b>
                                 <small>by {item.author}</small>
+                                {!!item.places?.length && (
+                                  <span className="instagram-places">
+                                    {item.places.map((place) => (
+                                      <em key={place}>#{place}</em>
+                                    ))}
+                                  </span>
+                                )}
                               </span>
                             </>
                           </a>
@@ -1088,7 +1304,22 @@ export default function App() {
             </button>
           </div>
           <div className="map-language-toggle" role="group" aria-label="Map place names">
-            <span>Place names</span>
+            <span>Map</span>
+            <button
+              className={mapProvider === "openstreetmap" ? "selected" : ""}
+              onClick={() => setMapProvider("openstreetmap")}
+              aria-pressed={mapProvider === "openstreetmap"}
+            >
+              OpenStreetMap
+            </button>
+            <button
+              className={mapProvider === "google" ? "selected" : ""}
+              onClick={() => setMapProvider("google")}
+              aria-pressed={mapProvider === "google"}
+            >
+              Google Maps
+            </button>
+            <span>Names</span>
             <button
               className={mapLabelLanguage === "english" ? "selected" : ""}
               onClick={() => setMapLabelLanguage("english")}
@@ -1108,6 +1339,7 @@ export default function App() {
             days={days}
             onSelect={setActive}
             labelLanguage={mapLabelLanguage}
+            provider={mapProvider}
           />
           <div className="legend">
             {days.length
@@ -1141,6 +1373,45 @@ export default function App() {
               className="secondary full"
               onClick={() => setModal("create")}
             >
+              Start a new journey
+            </button>
+          </div>
+        </div>
+      )}
+      {modal === "journeys" && (
+        <div className="backdrop">
+          <div className="modal journey-picker-modal">
+            <button className="close" onClick={() => setModal(null)}>
+              ×
+            </button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">YOUR JOURNEYS</p>
+            <h2>
+              Choose a <em>story.</em>
+            </h2>
+            {accountPlans.length ? (
+              <div className="journey-options">
+                {accountPlans.map((plan) => (
+                  <button
+                    className={
+                      plan.trip_id === session?.tripId
+                        ? "journey-option selected"
+                        : "journey-option"
+                    }
+                    key={plan.trip_id}
+                    onClick={() => openLinkedPlan(plan)}
+                  >
+                    <b>{plan.name}</b>
+                    <small>
+                      {plan.start_date} → {plan.end_date}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="account-empty">No linked journeys yet.</p>
+            )}
+            <button className="secondary full" onClick={() => setModal("create")}>
               Start a new journey
             </button>
           </div>
@@ -1525,17 +1796,55 @@ export default function App() {
                 ) : (
                   <div className="preview-placeholder">◎</div>
                 )}
-                <div>
-                  <b>{instagramPreview.title}</b>
-                  <small>by {instagramPreview.author}</small>
+                <div className="instagram-preview-metadata">
+                  <b>
+                    <InstagramMetadata
+                      text={instagramPreview.title}
+                      selectedPlaces={instagramPlaces}
+                      onTogglePlace={toggleInstagramPlace}
+                    />
+                  </b>
+                  <small>
+                    by{" "}
+                    <InstagramMetadata
+                      text={instagramPreview.author}
+                      selectedPlaces={instagramPlaces}
+                      onTogglePlace={toggleInstagramPlace}
+                    />
+                  </small>
                   {instagramPreview.description && (
-                    <p>{instagramPreview.description}</p>
+                    <p>
+                      <InstagramMetadata
+                        text={instagramPreview.description}
+                        selectedPlaces={instagramPlaces}
+                        onTogglePlace={toggleInstagramPlace}
+                      />
+                    </p>
+                  )}
+                  {instagramPreview.location && (
+                    <small>
+                      <InstagramMetadata
+                        text={instagramPreview.location}
+                        selectedPlaces={instagramPlaces}
+                        onTogglePlace={toggleInstagramPlace}
+                      />
+                    </small>
                   )}
                   <span>
                     {instagramPreview.fallback
                       ? "Link saved with a simple preview"
                       : "Preview verified"}
                   </span>
+                  <small className="place-tag-hint">
+                    Highlighted place names are clickable tags. Hover Japanese names for English.
+                  </small>
+                  {!!instagramPlaces.length && (
+                    <span className="selected-place-tags">
+                      {instagramPlaces.map((place) => (
+                        <em key={place}>#{place}</em>
+                      ))}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
