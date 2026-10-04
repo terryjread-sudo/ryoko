@@ -346,10 +346,13 @@
 }
 
 .instagram-modal {
+  max-height: calc(100vh - 32px);
   max-width: 460px;
+  overflow-y: auto;
 }
 
 .instagram-preview {
+  align-items: flex-start;
   display: flex;
   gap: 14px;
   align-items: center;
@@ -389,7 +392,10 @@
   margin: 7px 0 0;
 }
 .instagram-preview-metadata {
+  max-height: 260px;
   min-width: 0;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 .place-highlight {
   background: #f9df9b;
