@@ -37,3 +37,18 @@ create or replace function public.ryoko_is_admin()
 returns boolean language sql security definer set search_path = public as $$
   select exists (select 1 from public.ryoko_admins where user_id = auth.uid());
 $$;
+
+create or replace function public.ryoko_list_account_trips()
+returns table(trip_id uuid, name text, start_date date, end_date date, linked_at timestamptz)
+language sql security definer set search_path = public as $$
+  select t.id, t.name, t.start_date, t.end_date, a.linked_at
+  from public.ryoko_account_trips a
+  join public.ryoko_trips t on t.id = a.trip_id
+  where a.user_id = auth.uid() and t.archived_at is null
+  order by a.linked_at desc;
+$$;
+
+grant execute on function public.ryoko_get_account_profile() to authenticated;
+grant execute on function public.ryoko_save_account_profile(text, text) to authenticated;
+grant execute on function public.ryoko_is_admin() to authenticated;
+grant execute on function public.ryoko_list_account_trips() to authenticated;
