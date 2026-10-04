@@ -830,6 +830,21 @@ export default function App() {
         : [...current, place.english],
     );
   };
+  const instagramDetectedPlaces = useMemo(() => {
+    if (!instagramPreview) return [];
+    const metadata = [
+      instagramPreview.title,
+      instagramPreview.author,
+      instagramPreview.description,
+      instagramPreview.location,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase();
+    return japanPlaces.filter((place) =>
+      placeSearchTerms(place).some((term) => metadata.includes(term.toLocaleLowerCase())),
+    );
+  }, [instagramPreview]);
   const saveInstagram = async () => {
     const index = instagramDay;
     const day = index === null ? undefined : days[index];
@@ -2229,13 +2244,40 @@ export default function App() {
               />
             </label>
             {instagramError && <p className="form-error">{instagramError}</p>}
-            <button
-              className="secondary full"
-              onClick={() => void previewInstagram()}
-              disabled={instagramLoading}
-            >
-              {instagramLoading ? "Checking link…" : "Preview link"}
-            </button>
+            {instagramPreview ? (
+              <div className="instagram-tag-picker" aria-label="Potential place tags">
+                <small>Potential place tags</small>
+                {instagramDetectedPlaces.length ? (
+                  <div className="tag-suggestion-grid">
+                    {instagramDetectedPlaces.map((place) => {
+                      const selected = instagramPlaces.includes(place.english);
+                      return (
+                        <button
+                          type="button"
+                          className={selected ? "tag-suggestion selected" : "tag-suggestion"}
+                          key={place.english}
+                          onClick={() => toggleInstagramPlace(place)}
+                          title={`${place.english} · ${place.japanese}`}
+                        >
+                          <span>{place.english}</span>
+                          {selected && <strong aria-label="Selected">✓</strong>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="tag-suggestion-empty">No known Japanese place names found in this preview.</span>
+                )}
+              </div>
+            ) : (
+              <button
+                className="secondary full"
+                onClick={() => void previewInstagram()}
+                disabled={instagramLoading}
+              >
+                {instagramLoading ? "Checking link…" : "Preview link"}
+              </button>
+            )}
             {instagramPreview && (
               <div className="instagram-preview">
                 {instagramPreview.thumbnailUrl ? (
