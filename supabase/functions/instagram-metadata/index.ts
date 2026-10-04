@@ -25,6 +25,19 @@ const meta = (html: string, property: string) => {
     .replace(/&#x27;/g, "'");
 };
 
+const decodeEntities = (value: string) =>
+  value
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);?/g, (_, number) => String.fromCodePoint(Number(number)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;|&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+
 const readJson = async (response: Response) => {
   try {
     const text = await response.text();
@@ -77,16 +90,30 @@ Deno.serve(async (request) => {
       pageResult.status === "fulfilled" && pageResult.value.ok
         ? await pageResult.value.text()
         : "";
-    const description =
-      meta(html, "og:description") || oembed.title || undefined;
+    const rawTitle =
+      oembed.title || meta(html, "og:title") || "Saved from Instagram";
+    const rawDescription = meta(html, "og:description") || oembed.title || "";
+    const title = decodeEntities(rawTitle);
+    const description = decodeEntities(rawDescription) || undefined;
+    const descriptionAuthor = description?.match(
+      /comments?\s*-\s*([^\s]+)\s+on\s+/i,
+    )?.[1];
+    const titleAuthor = title.match(/^(.+?)\s+on Instagram:/i)?.[1];
     return json({
       ok: true,
-      title: oembed.title || meta(html, "og:title") || "Saved from Instagram",
+      title,
       description,
-      author: oembed.author_name || "Instagram creator",
-      location:
+      author: decodeEntities(
+        oembed.author_name ||
+          descriptionAuthor ||
+          titleAuthor ||
+          "Instagram creator",
+      ),
+      location: decodeEntities(
         meta(html, "place:location:name") ||
-        html.match(/"locationName":"([^"]+)"/)?.[1],
+          html.match(/"locationName":"([^"]+)"/)?.[1] ||
+          "",
+      ),
       thumbnailUrl: oembed.thumbnail_url || meta(html, "og:image") || undefined,
     });
   } catch (error) {
