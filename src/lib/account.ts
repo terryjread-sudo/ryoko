@@ -82,15 +82,15 @@ export async function saveAccountProfile(
   avatarColor: string,
 ) {
   if (!supabase) return;
+  const authProfile = await supabase.auth.updateUser({
+    data: { display_name: displayName, avatar_color: avatarColor },
+  });
+  if (authProfile.error) throw authProfile.error;
   const { error } = await supabase.rpc("ryoko_save_account_profile", {
     p_display_name: displayName,
     p_avatar_color: avatarColor,
   });
   if (error?.code === "PGRST202") {
-    const fallback = await supabase.auth.updateUser({
-      data: { display_name: displayName, avatar_color: avatarColor },
-    });
-    if (fallback.error) throw fallback.error;
     return;
   }
   if (error) throw error;

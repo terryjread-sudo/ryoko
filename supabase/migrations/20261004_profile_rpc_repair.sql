@@ -58,7 +58,7 @@ grant execute on function public.ryoko_is_admin() to authenticated;
 grant execute on function public.ryoko_list_account_trips() to authenticated;
 
 create or replace function public.ryoko_delete_day(p_code text, p_trip uuid, p_day uuid)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not exists (
     select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
@@ -78,7 +78,7 @@ grant execute on function public.ryoko_delete_day(text, uuid, uuid) to anon, aut
 grant execute on function public.ryoko_delete_account_day(uuid, uuid) to authenticated;
 
 create or replace function public.ryoko_list_day_items(p_code text, p_trip uuid, p_day uuid)
-returns setof public.ryoko_day_items language plpgsql security definer set search_path = public as $$
+returns setof public.ryoko_day_items language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not exists (
     select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
@@ -95,7 +95,7 @@ returns setof public.ryoko_day_items language sql security definer set search_pa
 $$;
 
 create or replace function public.ryoko_delete_item(p_code text, p_trip uuid, p_item uuid)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not exists (
     select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash

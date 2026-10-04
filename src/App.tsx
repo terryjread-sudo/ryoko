@@ -643,7 +643,7 @@ export default function App() {
         </button>
         <div className="top-actions">
           <span className="save">
-            {session ? "● Connected" : "○ Not connected"}
+            {accountUser ? "● Connected" : "○ Not connected"}
           </span>
           <button
             className="ghost"
@@ -1249,17 +1249,19 @@ export default function App() {
                 >
                   Export my account data
                 </button>
-                <button
-                  className="delete-plan full"
-                  onClick={async () => {
-                    if (!window.confirm("Request deletion of this account?"))
-                      return;
-                    await requestAccountDeletion();
-                    setAccountMessage("Account deletion request recorded.");
-                  }}
-                >
-                  Request account deletion
-                </button>
+                {!accountIsAdmin && (
+                  <button
+                    className="delete-plan full"
+                    onClick={async () => {
+                      if (!window.confirm("Request deletion of this account?"))
+                        return;
+                      await requestAccountDeletion();
+                      setAccountMessage("Account deletion request recorded.");
+                    }}
+                  >
+                    Request account deletion
+                  </button>
+                )}
                 <button
                   className="secondary full"
                   onClick={() => void supabase?.auth.signOut()}

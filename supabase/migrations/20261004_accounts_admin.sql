@@ -42,7 +42,7 @@ drop policy if exists ryoko_account_deletion_owner on public.ryoko_account_delet
 create policy ryoko_account_deletion_owner on public.ryoko_account_deletion_requests for insert with check (auth.uid() = user_id);
 
 create or replace function public.ryoko_link_account_trip(p_trip uuid, p_code text)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if auth.uid() is null then raise exception 'Sign in required'; end if;
   if not exists (
