@@ -10,6 +10,12 @@ export type RyokoSession = {
   startDate?: string;
   endDate?: string;
 };
+export type AuditEvent = {
+  id: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
 
 export async function createTrip(
   name: string,
@@ -222,6 +228,41 @@ export async function moveItem(
   if (error) throw error;
 }
 
+export async function recordAuditEvent(
+  session: RyokoSession,
+  eventType: string,
+  payload: Record<string, unknown>,
+) {
+  if (!supabase) return;
+  const { error } = session.code
+    ? await supabase.rpc("ryoko_record_audit_event", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_event_type: eventType,
+        p_payload: payload,
+      })
+    : await supabase.rpc("ryoko_record_account_audit_event", {
+        p_trip: session.tripId,
+        p_event_type: eventType,
+        p_payload: payload,
+      });
+  if (error) throw error;
+}
+
+export async function listAuditEvents(session: RyokoSession) {
+  if (!supabase) return [] as AuditEvent[];
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_list_audit_events", {
+        p_code: session.code,
+        p_trip: session.tripId,
+      })
+    : await supabase.rpc("ryoko_list_account_audit_events", {
+        p_trip: session.tripId,
+      });
+  if (error) throw error;
+  return (data ?? []) as AuditEvent[];
+}
+
 export async function issueMember(
   session: RyokoSession,
   name: string,
@@ -256,7 +297,10 @@ export function subscribeToTripPresence(
   onSync: (members: unknown[]) => void,
 ) {
   const client = supabase;
-  if (!client) return () => undefined;
+  if (!client)
+    return Object.assign(() => undefined, {
+      updateActiveDay: (_day: number) => undefined,
+    });
   const channel = client.channel(`ryoko:${session.tripId}`, {
     config: { presence: { key: session.code } },
   });
@@ -270,9 +314,20 @@ export function subscribeToTripPresence(
           name: session.displayName,
           color: session.color,
           role: session.role,
+          activeDay: null,
         });
     });
-  return () => {
+  const cleanup = () => {
     void client.removeChannel(channel);
   };
+  return Object.assign(cleanup, {
+    updateActiveDay: (day: number) => {
+      void channel.track({
+        name: session.displayName,
+        color: session.color,
+        role: session.role,
+        activeDay: day,
+      });
+    },
+  });
 }

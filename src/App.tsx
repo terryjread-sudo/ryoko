@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import "./interaction.css";
 import {
@@ -10,10 +10,13 @@ import {
   joinTrip,
   listDays,
   listInstagramItems,
+  listAuditEvents,
   moveItem,
+  recordAuditEvent,
   saveDay,
   saveItem,
   subscribeToTripPresence,
+  type AuditEvent,
   type RyokoSession,
 } from "./lib/ryoko";
 import { resolveInstagramUrl, type InstagramPreview } from "./lib/instagram";
@@ -347,6 +350,14 @@ export default function App() {
   );
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(0);
+  const [collaborators, setCollaborators] = useState<
+    Array<{ name?: string; color?: string; activeDay?: number | null }>
+  >([]);
+  const presenceRef = useRef<{
+    (): void;
+    updateActiveDay: (day: number) => void;
+  } | null>(null);
+  const [history, setHistory] = useState<AuditEvent[]>([]);
   const [modal, setModal] = useState<
     | "start"
     | "join"
@@ -355,6 +366,7 @@ export default function App() {
     | "code"
     | "account"
     | "journeys"
+    | "history"
     | null
   >(() => (getStoredSession() ? null : "start"));
   const [name, setName] = useState("");
@@ -605,10 +617,35 @@ export default function App() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-    return subscribeToTripPresence(session, (members) =>
-      setOnline(members.length),
-    );
+    const presence = subscribeToTripPresence(session, (members) => {
+      const visibleMembers = members as Array<{
+        name?: string;
+        color?: string;
+        activeDay?: number | null;
+      }>;
+      setCollaborators(visibleMembers);
+      setOnline(visibleMembers.length);
+    });
+    presenceRef.current = presence;
+    return () => {
+      presenceRef.current = null;
+      presence();
+    };
   }, [session]);
+
+  const selectDay = (index: number) => {
+    setActive(index);
+    presenceRef.current?.updateActiveDay(index);
+  };
+  const openHistory = async () => {
+    if (!session) return;
+    try {
+      setHistory(await listAuditEvents(session));
+      setModal("history");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   const cities = useMemo(
     () => new Set(days.map((day) => day.city).filter(Boolean)).size,
@@ -642,7 +679,15 @@ export default function App() {
         date: field === "date" ? value : next.date,
         city: field === "city" ? value : next.city,
         title: field === "title" ? value : next.title,
-      }).catch((e) => setError(e.message));
+      })
+        .then(() =>
+          recordAuditEvent(session, "updated_day", {
+            day: next.date,
+            city: next.city,
+            title: next.title,
+          }),
+        )
+        .catch((e) => setError(e.message));
   };
   const openInstagram = (index: number) => {
     setInstagramDay(index);
@@ -697,6 +742,10 @@ export default function App() {
         content: metadata,
         completed: false,
       });
+      void recordAuditEvent(session, "added_instagram", {
+        title: instagramPreview.title,
+        url: instagramPreview.url,
+      });
       setDays((current) =>
         current.map((item, i) =>
           i === index
@@ -740,6 +789,11 @@ export default function App() {
     if (!sourceDay?.id || !targetDay?.id || !item?.id || !session) return;
     try {
       await moveItem(session, item.id, sourceDay.id, targetDay.id);
+      void recordAuditEvent(session, "moved_instagram", {
+        title: item.title,
+        from: sourceDay.date,
+        to: targetDay.date,
+      });
       setDays((current) =>
         current.map((day, index) => {
           if (index === draggedInstagram.dayIndex)
@@ -785,7 +839,7 @@ export default function App() {
           instagramItems: [],
         },
       ]);
-      setActive(days.length);
+      selectDay(days.length);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -801,6 +855,7 @@ export default function App() {
       return;
     try {
       if (day.id) await deleteDay(session, day.id);
+      void recordAuditEvent(session, "deleted_day", { date: day.date });
       setDays((current) => current.filter((_, i) => i !== index));
       setActive((current) => Math.max(0, Math.min(current, days.length - 2)));
     } catch (e) {
@@ -827,7 +882,7 @@ export default function App() {
       next.splice(target, 0, item);
       return next;
     });
-    setActive(target);
+    selectDay(target);
   };
   const create = async () => {
     setError("");
@@ -872,7 +927,7 @@ export default function App() {
       }
       setJourneyName(tripName);
       setDays(createdDays);
-      setActive(0);
+      selectDay(0);
       setModal(null);
     } catch (e) {
       setError((e as Error).message);
@@ -1054,7 +1109,7 @@ export default function App() {
                   if (draggedInstagram) void moveInstagram(index);
                   else moveDay(index);
                 }}
-                onClick={() => setActive(index)}
+                onClick={() => selectDay(index)}
               >
                 {dragOver === index && dragged !== index && (
                   <div className="drop-indicator">
@@ -1173,6 +1228,23 @@ export default function App() {
                       </button>
                     </span>
                   </div>
+                  {!!collaborators.filter((member) => member.activeDay === index).length && (
+                    <div className="day-collaborators" aria-label="Collaborators viewing this day">
+                      {collaborators
+                        .filter((member) => member.activeDay === index)
+                        .map((member, memberIndex) => (
+                          <span
+                            className="collaborator-cursor"
+                            key={`${member.name ?? "traveller"}-${memberIndex}`}
+                            style={{ background: member.color ?? "#735fa6" }}
+                            title={`${member.name ?? "Traveller"} is viewing this day`}
+                          >
+                            {(member.name ?? "?").charAt(0).toUpperCase()}
+                          </span>
+                        ))}
+                      <small>Viewing this day</small>
+                    </div>
+                  )}
                   <input
                     className="inline-input title-input"
                     placeholder="Give this day a title"
@@ -1303,7 +1375,7 @@ export default function App() {
             </div>
             <button
               className="round"
-              onClick={() => setActive(0)}
+              onClick={() => selectDay(0)}
               aria-label="Center map"
             >
               ⌖
@@ -1343,7 +1415,7 @@ export default function App() {
           </div>
           <JapanMap
             days={days}
-            onSelect={setActive}
+            onSelect={selectDay}
             labelLanguage={mapLabelLanguage}
             provider={mapProvider}
             selectedIndex={active}
@@ -1359,7 +1431,20 @@ export default function App() {
         <button className="footer-link" onClick={startOver}>
           Start a different journey
         </button>
+        <a
+          className="kaishi-footer-link"
+          href="https://www.kaishi.uk"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span>✿</span> Learn Japanese with Kaishi
+        </a>
         <span>{error || "Your journey data is stored securely."}</span>
+        {session && (
+          <button className="footer-link" onClick={() => void openHistory()}>
+            Activity history
+          </button>
+        )}
       </footer>
       {modal === "start" && (
         <div className="backdrop">
@@ -1382,6 +1467,35 @@ export default function App() {
             >
               Start a new journey
             </button>
+          </div>
+        </div>
+      )}
+      {modal === "history" && (
+        <div className="backdrop">
+          <div className="modal history-modal">
+            <button className="close" onClick={() => setModal(null)}>
+              ×
+            </button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">COLLABORATION HISTORY</p>
+            <h2>
+              What changed <em>recently.</em>
+            </h2>
+            {history.length ? (
+              <div className="history-list">
+                {history.map((event) => (
+                  <article key={event.id}>
+                    <b>{event.event_type.replaceAll("_", " ")}</b>
+                    <small>{new Date(event.created_at).toLocaleString()}</small>
+                    <span>
+                      {String(event.payload.city ?? event.payload.title ?? event.payload.url ?? "Journey updated")}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="account-empty">No recorded changes yet.</p>
+            )}
           </div>
         </div>
       )}
