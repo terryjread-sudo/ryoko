@@ -184,6 +184,82 @@ export async function listInstagramItems(session: RyokoSession, dayId: string) {
   );
 }
 
+export async function listJourneyInstagramItems(session: RyokoSession) {
+  if (!supabase) return [];
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_list_trip_instagram", {
+        p_code: session.code,
+        p_trip: session.tripId,
+      })
+    : await supabase.rpc("ryoko_list_account_instagram", {
+        p_trip: session.tripId,
+      });
+  if (error) throw error;
+  return (data ?? []) as Array<{ id: string; content: string }>;
+}
+
+export async function saveJourneyInstagramItem(
+  session: RyokoSession,
+  content: string,
+  canonicalUrl: string,
+) {
+  if (!supabase) return null;
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_save_trip_instagram", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_content: content,
+        p_canonical_url: canonicalUrl,
+      })
+    : await supabase.rpc("ryoko_save_account_instagram", {
+        p_trip: session.tripId,
+        p_content: content,
+        p_canonical_url: canonicalUrl,
+      });
+  if (error) throw error;
+  return data as string | null;
+}
+
+export async function deleteJourneyInstagramItem(
+  session: RyokoSession,
+  itemId: string,
+) {
+  if (!supabase) return;
+  const { error } = session.code
+    ? await supabase.rpc("ryoko_delete_trip_instagram", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_item: itemId,
+      })
+    : await supabase.rpc("ryoko_delete_account_instagram", {
+        p_trip: session.tripId,
+        p_item: itemId,
+      });
+  if (error) throw error;
+}
+
+export async function moveJourneyInstagramToDay(
+  session: RyokoSession,
+  itemId: string,
+  dayId: string,
+) {
+  if (!supabase) return null;
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_move_trip_instagram_to_day", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_item: itemId,
+        p_day: dayId,
+      })
+    : await supabase.rpc("ryoko_move_account_instagram_to_day", {
+        p_trip: session.tripId,
+        p_item: itemId,
+        p_day: dayId,
+      });
+  if (error) throw error;
+  return data as string | null;
+}
+
 export async function deleteItem(
   session: RyokoSession,
   itemId: string,
