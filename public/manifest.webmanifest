@@ -1,0 +1,14 @@
+{
+  "name": "Ryōkō — Japan Travel Planner",
+  "short_name": "Ryōkō",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffaf7",
+  "theme_color": "#fffaf7",
+  "icons": [],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}

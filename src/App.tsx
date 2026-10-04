@@ -10,8 +10,12 @@ import {
   joinTrip,
   listDays,
   listInstagramItems,
+  listJourneyInstagramItems,
   listAuditEvents,
   moveItem,
+  moveJourneyInstagramToDay,
+  deleteJourneyInstagramItem,
+  saveJourneyInstagramItem,
   recordAuditEvent,
   saveDay,
   saveItem,
@@ -61,6 +65,27 @@ type InstagramItem = {
   author: string;
   thumbnailUrl?: string;
   places?: string[];
+};
+
+const canonicalInstagramUrl = (value: string) => {
+  try {
+    const url = new URL(value.trim());
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    url.search = "";
+    url.hash = "";
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+};
+
+const parseInstagramItem = (item: { id: string; content: string }) => {
+  try {
+    return { id: item.id, ...JSON.parse(item.content) } as InstagramItem;
+  } catch {
+    return { id: item.id, url: item.content, title: "Instagram inspiration", author: "Instagram" } as InstagramItem;
+  }
 };
 
 function InstagramMetadata({
@@ -437,6 +462,9 @@ export default function App() {
     undo?: () => void;
   } | null>(null);
   const [instagramDay, setInstagramDay] = useState<number | null>(null);
+  const [instagramLibraryMode, setInstagramLibraryMode] = useState(false);
+  const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
+  const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [instagramUrl, setInstagramUrl] = useState("");
   const [instagramPreview, setInstagramPreview] =
     useState<InstagramPreview | null>(null);
@@ -484,6 +512,15 @@ export default function App() {
   const isJourneyDate = (value: string) =>
     (!journeyStart || value >= journeyStart) &&
     (!journeyEnd || value <= journeyEnd);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedUrl = params.get("url") || params.get("text");
+    if (!sharedUrl) return;
+    setInstagramLibraryMode(true);
+    setInstagramUrl(sharedUrl);
+    window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -638,6 +675,7 @@ export default function App() {
     setLoading(true);
     void listDays(session)
       .then(async (rows) => {
+        const libraryRows = await listJourneyInstagramItems(session);
         const loaded = await Promise.all(
           rows.map(
             async (row: {
@@ -654,28 +692,13 @@ export default function App() {
                 emoji: emojis[row.city ?? ""] ?? "✦",
                 title: row.title ?? "",
                 items: [],
-                instagramItems: instagramItems.map(
-                  (item: { id: string; content: string }) => {
-                    try {
-                      return {
-                        id: item.id,
-                        ...JSON.parse(item.content),
-                      } as InstagramItem;
-                    } catch {
-                      return {
-                        id: item.id,
-                        url: item.content,
-                        title: "Instagram inspiration",
-                        author: "Instagram",
-                      };
-                    }
-                  },
-                ),
+                instagramItems: instagramItems.map(parseInstagramItem),
               } as Day;
             },
           ),
         );
         setDays(loaded);
+        setInstagramLibrary(libraryRows.map(parseInstagramItem));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -752,13 +775,22 @@ export default function App() {
         })
         .catch((e) => setError(e.message));
   };
-  const openInstagram = (index: number) => {
-    setInstagramDay(index);
+  const resetInstagramComposer = () => {
     setInstagramUrl("");
     setInstagramPreview(null);
     setInstagramError("");
     setInstagramPlaces([]);
     setUseInstagramLocation(false);
+  };
+  const openInstagram = (index: number) => {
+    setInstagramDay(index);
+    setInstagramLibraryMode(false);
+    resetInstagramComposer();
+  };
+  const openInstagramLibrary = () => {
+    setInstagramDay(null);
+    setInstagramLibraryMode(true);
+    resetInstagramComposer();
   };
   const previewInstagram = async () => {
     const value = instagramUrl.trim();
@@ -788,8 +820,16 @@ export default function App() {
   const saveInstagram = async () => {
     const index = instagramDay;
     const day = index === null ? undefined : days[index];
-    if (!session || index === null || !day?.id || !instagramPreview) return;
+    if (!session || !instagramPreview || (!instagramLibraryMode && (index === null || !day?.id))) return;
     try {
+      const canonicalUrl = canonicalInstagramUrl(instagramPreview.url);
+      const duplicate = [...instagramLibrary, ...days.flatMap((entry) => entry.instagramItems)].find(
+        (item) => canonicalInstagramUrl(item.url) === canonicalUrl,
+      );
+      if (duplicate && !instagramLibraryMode) {
+        setInstagramError("This Instagram video is already saved in this journey.");
+        return;
+      }
       const metadata = JSON.stringify({
         url: instagramPreview.url,
         title: instagramPreview.title,
@@ -799,12 +839,29 @@ export default function App() {
         location: instagramPreview.location,
         places: instagramPlaces,
       });
-      const saved = await saveItem(session, {
-        dayId: day.id,
-        kind: "instagram",
-        content: metadata,
-        completed: false,
-      });
+      const saved = instagramLibraryMode
+        ? await saveJourneyInstagramItem(session, metadata, canonicalUrl)
+        : await saveItem(session, {
+            dayId: day!.id!,
+            kind: "instagram",
+            content: metadata,
+            completed: false,
+          });
+      const nextItem: InstagramItem = {
+        id: saved ?? undefined,
+        url: instagramPreview.url,
+        title: instagramPreview.title,
+        description: instagramPreview.description,
+        author: instagramPreview.author,
+        thumbnailUrl: instagramPreview.thumbnailUrl,
+        places: instagramPlaces,
+      };
+      if (instagramLibraryMode) {
+        setInstagramLibrary((current) => [
+          ...current.filter((item) => canonicalInstagramUrl(item.url) !== canonicalUrl),
+          nextItem,
+        ]);
+      }
       void recordAuditEvent(session, "added_instagram", {
         title: instagramPreview.title,
         url: instagramPreview.url,
@@ -812,7 +869,7 @@ export default function App() {
       showToast("Instagram inspiration saved");
       setDays((current) =>
         current.map((item, i) =>
-          i === index
+          !instagramLibraryMode && i === index
             ? {
                 ...item,
                 instagramItems: [
@@ -835,8 +892,42 @@ export default function App() {
         ),
       );
       setInstagramDay(null);
+      setInstagramLibraryMode(false);
     } catch (e) {
       setInstagramError((e as Error).message);
+    }
+  };
+  const sendLibraryItemToDay = async (dayIndex: number) => {
+    if (!session || !moveLibraryItem?.id || !days[dayIndex]?.id) return;
+    if (days[dayIndex].instagramItems.some((item) => canonicalInstagramUrl(item.url) === canonicalInstagramUrl(moveLibraryItem.url))) {
+      setError("This Instagram video is already saved on that day.");
+      return;
+    }
+    try {
+      const newId = await moveJourneyInstagramToDay(session, moveLibraryItem.id, days[dayIndex].id!);
+      setDays((current) => current.map((day, index) => index === dayIndex
+        ? { ...day, instagramItems: [...day.instagramItems, { ...moveLibraryItem, id: newId ?? undefined }] }
+        : day));
+      setInstagramLibrary((current) => current.filter((item) => item.id !== moveLibraryItem.id));
+      setMoveLibraryItem(null);
+      showToast("Instagram inspiration sent to the selected day");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const moveDayItemToLibrary = async (dayIndex: number, item: InstagramItem) => {
+    if (!session || !item.id) return;
+    try {
+      const content = JSON.stringify(item);
+      const saved = await saveJourneyInstagramItem(session, content, canonicalInstagramUrl(item.url));
+      await deleteItem(session, item.id, days[dayIndex].id!);
+      setDays((current) => current.map((day, index) => index === dayIndex
+        ? { ...day, instagramItems: day.instagramItems.filter((entry) => entry.id !== item.id) }
+        : day));
+      setInstagramLibrary((current) => [...current.filter((entry) => canonicalInstagramUrl(entry.url) !== canonicalInstagramUrl(item.url)), { ...item, id: saved ?? item.id }]);
+      showToast("Instagram inspiration moved to the journey library");
+    } catch (e) {
+      setError((e as Error).message);
     }
   };
   const moveInstagram = async (targetDayIndex: number) => {
@@ -1405,6 +1496,17 @@ export default function App() {
                             </>
                           </a>
                           <button
+                            className="library-send"
+                            title="Move to journey library"
+                            aria-label="Move to journey library"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void moveDayItemToLibrary(index, item);
+                            }}
+                          >
+                            ↓
+                          </button>
+                          <button
                             className="instagram-remove"
                             title="Remove Instagram inspiration"
                             onClick={async (e) => {
@@ -1545,6 +1647,40 @@ export default function App() {
               ? `${cities} destinations in your journey`
               : "Destinations will appear here"}
           </div>
+          <section className="instagram-library" aria-labelledby="instagram-library-title">
+            <div className="library-heading">
+              <div>
+                <p className="eyebrow">JOURNEY INSPIRATION</p>
+                <h3 id="instagram-library-title">Instagram <em>library</em></h3>
+              </div>
+              <button className="secondary" onClick={openInstagramLibrary} disabled={!session}>
+                ＋ Add video
+              </button>
+            </div>
+            {!instagramLibrary.length ? (
+              <p className="empty-hint">Save videos here first, then send them to a dated day when you are ready.</p>
+            ) : (
+              <div className="instagram-items">
+                {instagramLibrary.map((item) => (
+                  <article className="instagram-item" key={item.id ?? item.url}>
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
+                      <span><b>{item.title}</b><small>by {item.author}</small>{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}</span>
+                    </a>
+                    <button className="library-send" title="Send to a day" aria-label="Send to a day" onClick={() => setMoveLibraryItem(item)}>→</button>
+                    <button className="instagram-remove" title="Remove from journey library" aria-label="Remove from journey library" onClick={async () => {
+                      if (!item.id || !session || !window.confirm("Remove this Instagram inspiration?")) return;
+                      try {
+                        await deleteJourneyInstagramItem(session, item.id);
+                        setInstagramLibrary((current) => current.filter((entry) => entry.id !== item.id));
+                        showToast("Instagram inspiration removed");
+                      } catch (e) { setError((e as Error).message); }
+                    }}>×</button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </aside>
       </div>
       <footer>
@@ -2024,13 +2160,13 @@ export default function App() {
           </div>
         </div>
       )}
-      {instagramDay !== null && (
-        <div className="backdrop" onClick={() => setInstagramDay(null)}>
+      {(instagramDay !== null || instagramLibraryMode) && (
+        <div className="backdrop" onClick={() => { setInstagramDay(null); setInstagramLibraryMode(false); }}>
           <div
             className="modal instagram-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="close" onClick={() => setInstagramDay(null)}>
+            <button className="close" onClick={() => { setInstagramDay(null); setInstagramLibraryMode(false); }}>
               ×
             </button>
             <span className="flower">✿</span>
@@ -2040,7 +2176,7 @@ export default function App() {
             </h2>
             <p className="modal-copy">
               Paste a public Instagram post or Reel. We’ll check the link and
-              show you how it will appear on this day.
+              show you how it will appear {instagramLibraryMode ? "in your journey library" : "on this day"}.
             </p>
             <label>
               Instagram URL
@@ -2126,7 +2262,7 @@ export default function App() {
                 </div>
               </div>
             )}
-            {instagramPreview?.location && (
+            {instagramPreview?.location && !instagramLibraryMode && (
               <label className="location-choice">
                 <input
                   type="checkbox"
@@ -2141,8 +2277,26 @@ export default function App() {
               onClick={() => void saveInstagram()}
               disabled={!instagramPreview}
             >
-              Save to this day ✦
+              {instagramLibraryMode ? "Save to journey library ✦" : "Save to this day ✦"}
             </button>
+          </div>
+        </div>
+      )}
+      {moveLibraryItem && (
+        <div className="backdrop" onClick={() => setMoveLibraryItem(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="close" onClick={() => setMoveLibraryItem(null)}>×</button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">SEND TO DAY</p>
+            <h2>Choose a <em>date.</em></h2>
+            <p className="modal-copy">Move “{moveLibraryItem.title}” from the journey library into your itinerary.</p>
+            <div className="journey-options">
+              {days.map((day, index) => (
+                <button className="journey-option" key={day.id ?? day.date} onClick={() => void sendLibraryItemToDay(index)}>
+                  <b>{day.date} · {day.city || "Untitled day"}</b><small>{day.title || "Add a title to this day"}</small>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

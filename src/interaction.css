@@ -393,6 +393,51 @@
   padding: 8px;
 }
 
+.library-send {
+  background: transparent;
+  border: 0;
+  color: #735fa6;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 8px;
+}
+
+.library-send:hover,
+.library-send:focus-visible {
+  background: #eee5f7;
+  border-radius: 6px;
+  outline: none;
+}
+
+.instagram-library {
+  border-top: 1px solid #ead9d1;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.library-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.library-heading h3 {
+  font-family: Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+  margin: 3px 0 0;
+}
+
+.library-heading h3 em {
+  color: #ad5e63;
+}
+
+.library-heading .secondary {
+  font-size: 0.72rem;
+  padding: 8px 10px;
+}
+
 .instagram-modal {
   max-height: calc(100vh - 32px);
   max-width: 460px;
