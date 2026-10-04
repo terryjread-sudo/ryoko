@@ -181,11 +181,13 @@ function JapanMap({
   onSelect,
   labelLanguage,
   provider,
+  selectedIndex,
 }: {
   days: Day[];
   onSelect: (index: number) => void;
   labelLanguage: "english" | "japanese";
   provider: "openstreetmap" | "google";
+  selectedIndex: number;
 }) {
   const [zoom, setZoom] = useState(5);
   const width = 800;
@@ -218,7 +220,8 @@ function JapanMap({
   };
   const centerPoint = project(center[0], center[1], zoom);
   const googleLanguage = labelLanguage === "japanese" ? "ja" : "en";
-  const googleMapUrl = `https://www.google.com/maps?q=${center[0]},${center[1]}&z=${zoom + 1}&hl=${googleLanguage}&output=embed`;
+  const selectedCenter = points[selectedIndex]?.coord ?? center;
+  const googleMapUrl = `https://www.google.com/maps?q=${selectedCenter[0]},${selectedCenter[1]}&z=${zoom + 1}&hl=${googleLanguage}&output=embed`;
   if (provider === "google") {
     return (
       <div className="real-map google-map">
@@ -230,12 +233,15 @@ function JapanMap({
         />
         <a
           className="google-map-link"
-          href={`https://www.google.com/maps/search/?api=1&query=${center[0]},${center[1]}&hl=${googleLanguage}`}
+          href={`https://www.google.com/maps/search/?api=1&query=${selectedCenter[0]},${selectedCenter[1]}&hl=${googleLanguage}`}
           target="_blank"
           rel="noreferrer"
         >
           Open in Google Maps ↗
         </a>
+        <span className="google-map-selected">
+          {points[selectedIndex]?.day.city || "Selected day"}
+        </span>
       </div>
     );
   }
@@ -1340,6 +1346,7 @@ export default function App() {
             onSelect={setActive}
             labelLanguage={mapLabelLanguage}
             provider={mapProvider}
+            selectedIndex={active}
           />
           <div className="legend">
             {days.length

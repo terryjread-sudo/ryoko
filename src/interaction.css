@@ -146,6 +146,17 @@
   right: 10px;
   text-decoration: none;
 }
+.google-map-selected {
+  background: #fffaf5e8;
+  border: 1px solid #eadfd7;
+  border-radius: 7px;
+  color: #665b69;
+  font-size: 10px;
+  left: 10px;
+  padding: 6px 8px;
+  position: absolute;
+  top: 10px;
+}
 
 .real-pin {
   cursor: pointer;
