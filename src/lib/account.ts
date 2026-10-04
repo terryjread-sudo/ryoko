@@ -48,6 +48,7 @@ export async function revealAccountTripCode(tripId: string) {
 export async function listAccountPlans() {
   if (!supabase) return [] as AccountPlan[];
   const { data, error } = await supabase.rpc("ryoko_list_account_trips");
+  if (error?.code === "PGRST202") return [] as AccountPlan[];
   if (error) throw error;
   return (data ?? []) as AccountPlan[];
 }
@@ -55,6 +56,7 @@ export async function listAccountPlans() {
 export async function listAdminPlans() {
   if (!supabase) return [] as AccountPlan[];
   const { data, error } = await supabase.rpc("ryoko_admin_list_trips");
+  if (error?.code === "PGRST202") return [] as AccountPlan[];
   if (error) throw error;
   return (data ?? []) as AccountPlan[];
 }
@@ -70,6 +72,7 @@ export async function deleteAdminPlan(tripId: string) {
 export async function isAdmin() {
   if (!supabase) return false;
   const { data, error } = await supabase.rpc("ryoko_is_admin");
+  if (error?.code === "PGRST202") return false;
   if (error) throw error;
   return Boolean(data);
 }
@@ -83,12 +86,20 @@ export async function saveAccountProfile(
     p_display_name: displayName,
     p_avatar_color: avatarColor,
   });
+  if (error?.code === "PGRST202") {
+    const fallback = await supabase.auth.updateUser({
+      data: { display_name: displayName, avatar_color: avatarColor },
+    });
+    if (fallback.error) throw fallback.error;
+    return;
+  }
   if (error) throw error;
 }
 
 export async function getAccountProfile() {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc("ryoko_get_account_profile");
+  if (error?.code === "PGRST202") return null;
   if (error) throw error;
   return data?.[0] ?? null;
 }
