@@ -490,14 +490,15 @@ export default function App() {
     let disposed = false;
     const enterAccount = async (user: NonNullable<typeof accountUser>) => {
       setAccountUser(user);
-      if (getStoredSession()) return;
       try {
         const plans = await listAccountPlans();
         if (disposed) return;
         setAccountPlans(plans);
-        setModal(plans.length ? "account" : "start");
+        // Keep an existing journey open when auth finishes restoring, but make
+        // the linked journeys available to the top-bar switcher immediately.
+        if (!getStoredSession()) setModal(plans.length ? "account" : "start");
       } catch {
-        if (!disposed) setModal("start");
+        if (!disposed && !getStoredSession()) setModal("start");
       }
     };
     void supabase.auth.getSession().then(({ data }) => {
