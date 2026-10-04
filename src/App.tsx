@@ -316,6 +316,7 @@ export default function App() {
     try {
       const created = await createTrip(tripName, from, to, name);
       setSession({ ...created, startDate: from, endDate: to });
+      if (accountUser) void linkCurrentTrip(created.tripId, created.code);
       setJourneyName(tripName);
       for (const city of chosen) {
         const saved = await saveDay(created, { date: from, city, title: "" });
@@ -341,6 +342,7 @@ export default function App() {
     try {
       const joined = await joinTrip(code, name);
       setSession(joined);
+      if (accountUser) void linkCurrentTrip(joined.tripId, joined.code);
       setModal(null);
     } catch (e) {
       setError((e as Error).message);
