@@ -4,10 +4,12 @@ import "./interaction.css";
 import {
   createTrip,
   deleteDay,
+  deleteItem,
   getStoredSession,
   issueMember,
   joinTrip,
   listDays,
+  listInstagramItems,
   saveDay,
   saveItem,
   subscribeToTripPresence,
@@ -43,6 +45,15 @@ type Day = {
   items: string[];
   instagramUrl?: string;
   subLocation?: string;
+  instagramItems: InstagramItem[];
+};
+type InstagramItem = {
+  id?: string;
+  url: string;
+  title: string;
+  description?: string;
+  author: string;
+  thumbnailUrl?: string;
 };
 const destinations = [
   "Tokyo",
@@ -236,25 +247,46 @@ export default function App() {
     }
     setLoading(true);
     void listDays(session)
-      .then((rows) =>
-        setDays(
+      .then(async (rows) => {
+        const loaded = await Promise.all(
           rows.map(
-            (row: {
+            async (row: {
               id: string;
               day_date: string;
               city: string | null;
               title: string | null;
-            }) => ({
-              id: row.id,
-              date: row.day_date,
-              city: row.city ?? "",
-              emoji: emojis[row.city ?? ""] ?? "✦",
-              title: row.title ?? "",
-              items: [],
-            }),
+            }) => {
+              const instagramItems = await listInstagramItems(session, row.id);
+              return {
+                id: row.id,
+                date: row.day_date,
+                city: row.city ?? "",
+                emoji: emojis[row.city ?? ""] ?? "✦",
+                title: row.title ?? "",
+                items: [],
+                instagramItems: instagramItems.map(
+                  (item: { id: string; content: string }) => {
+                    try {
+                      return {
+                        id: item.id,
+                        ...JSON.parse(item.content),
+                      } as InstagramItem;
+                    } catch {
+                      return {
+                        id: item.id,
+                        url: item.content,
+                        title: "Instagram inspiration",
+                        author: "Instagram",
+                      };
+                    }
+                  },
+                ),
+              } as Day;
+            },
           ),
-        ),
-      )
+        );
+        setDays(loaded);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
     return subscribeToTripPresence(session, (members) =>
@@ -298,7 +330,7 @@ export default function App() {
   };
   const openInstagram = (index: number) => {
     setInstagramDay(index);
-    setInstagramUrl(days[index]?.instagramUrl ?? "");
+    setInstagramUrl("");
     setInstagramPreview(null);
     setInstagramError("");
     setUseInstagramLocation(false);
@@ -333,7 +365,7 @@ export default function App() {
         author: instagramPreview.author,
         location: instagramPreview.location,
       });
-      await saveItem(session, {
+      const saved = await saveItem(session, {
         dayId: day.id,
         kind: "instagram",
         content: metadata,
@@ -344,7 +376,17 @@ export default function App() {
           i === index
             ? {
                 ...item,
-                instagramUrl: instagramPreview.url,
+                instagramItems: [
+                  ...item.instagramItems,
+                  {
+                    id: saved?.id,
+                    url: instagramPreview.url,
+                    title: instagramPreview.title,
+                    description: instagramPreview.description,
+                    author: instagramPreview.author,
+                    thumbnailUrl: instagramPreview.thumbnailUrl,
+                  },
+                ],
                 subLocation: useInstagramLocation
                   ? instagramPreview.location
                   : item.subLocation,
@@ -362,7 +404,7 @@ export default function App() {
       setModal("join");
       return;
     }
-    const date = from || new Date().toISOString().slice(0, 10);
+    const date = from || journeyStart || new Date().toISOString().slice(0, 10);
     if (!isJourneyDate(date)) {
       setError("Choose a date within your journey range.");
       return;
@@ -371,7 +413,15 @@ export default function App() {
       const saved = await saveDay(session, { date, city: "", title: "" });
       setDays((current) => [
         ...current,
-        { id: saved?.id, date, city: "", emoji: "✦", title: "", items: [] },
+        {
+          id: saved?.id,
+          date,
+          city: "",
+          emoji: "✦",
+          title: "",
+          items: [],
+          instagramItems: [],
+        },
       ]);
       setActive(days.length);
     } catch (e) {
@@ -436,6 +486,7 @@ export default function App() {
             emoji: emojis[city],
             title: "",
             items: [],
+            instagramItems: [],
           },
         ]);
       }
@@ -721,6 +772,65 @@ export default function App() {
                       ? "View saved Instagram inspiration"
                       : "＋ Add Instagram post or Reel"}
                   </button>
+                  {!!day.instagramItems.length && (
+                    <div className="instagram-items">
+                      {day.instagramItems.map((item) => (
+                        <article
+                          className="instagram-item"
+                          key={item.id ?? item.url}
+                        >
+                          <a href={item.url} target="_blank" rel="noreferrer">
+                            <>
+                              {item.thumbnailUrl ? (
+                                <img src={item.thumbnailUrl} alt="" />
+                              ) : (
+                                <span className="instagram-item-placeholder">
+                                  ◎
+                                </span>
+                              )}
+                              <span>
+                                <b>{item.title}</b>
+                                <small>by {item.author}</small>
+                              </span>
+                            </>
+                          </a>
+                          <button
+                            className="instagram-remove"
+                            title="Remove Instagram inspiration"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (
+                                !item.id ||
+                                !session ||
+                                !day.id ||
+                                !window.confirm(
+                                  "Remove this Instagram inspiration?",
+                                )
+                              )
+                                return;
+                              await deleteItem(session, item.id, day.id);
+                              setDays((current) =>
+                                current.map((entry, i) =>
+                                  i === index
+                                    ? {
+                                        ...entry,
+                                        instagramItems:
+                                          entry.instagramItems.filter(
+                                            (savedItem) =>
+                                              savedItem.id !== item.id,
+                                          ),
+                                      }
+                                    : entry,
+                                ),
+                              );
+                            }}
+                          >
+                            ×
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </article>
             ))}

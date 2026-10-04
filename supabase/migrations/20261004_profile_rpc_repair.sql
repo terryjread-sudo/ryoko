@@ -76,3 +76,42 @@ end; $$;
 
 grant execute on function public.ryoko_delete_day(text, uuid, uuid) to anon, authenticated;
 grant execute on function public.ryoko_delete_account_day(uuid, uuid) to authenticated;
+
+create or replace function public.ryoko_list_day_items(p_code text, p_trip uuid, p_day uuid)
+returns setof public.ryoko_day_items language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (
+    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+  ) then raise exception 'Invalid journey code'; end if;
+  return query select i.* from public.ryoko_day_items i where i.day_id = p_day and i.kind = 'instagram' order by i.sort_order, i.created_at;
+end; $$;
+
+create or replace function public.ryoko_list_account_day_items(p_trip uuid, p_day uuid)
+returns setof public.ryoko_day_items language sql security definer set search_path = public as $$
+  select i.* from public.ryoko_day_items i where i.day_id = p_day and i.kind = 'instagram'
+  and exists (select 1 from public.ryoko_account_trips a where a.trip_id = p_trip and a.user_id = auth.uid())
+  order by i.sort_order, i.created_at;
+$$;
+
+create or replace function public.ryoko_delete_item(p_code text, p_trip uuid, p_item uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (
+    select 1 from public.ryoko_trips t where t.id = p_trip and crypt(lower(trim(p_code)), t.owner_code_hash) = t.owner_code_hash
+    union all select 1 from public.ryoko_trip_members m where m.trip_id = p_trip and m.revoked_at is null and crypt(lower(trim(p_code)), m.code_hash) = m.code_hash
+  ) then raise exception 'Invalid journey code'; end if;
+  delete from public.ryoko_day_items where id = p_item;
+end; $$;
+
+create or replace function public.ryoko_delete_account_item(p_trip uuid, p_day uuid, p_item uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.ryoko_account_trips where trip_id = p_trip and user_id = auth.uid()) then raise exception 'Journey not linked to account'; end if;
+  delete from public.ryoko_day_items where id = p_item and day_id = p_day;
+end; $$;
+
+grant execute on function public.ryoko_list_day_items(text, uuid, uuid) to anon, authenticated;
+grant execute on function public.ryoko_list_account_day_items(uuid, uuid) to authenticated;
+grant execute on function public.ryoko_delete_item(text, uuid, uuid) to anon, authenticated;
+grant execute on function public.ryoko_delete_account_item(uuid, uuid, uuid) to authenticated;

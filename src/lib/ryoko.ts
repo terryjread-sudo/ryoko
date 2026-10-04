@@ -154,6 +154,44 @@ export async function saveItem(
   return data;
 }
 
+export async function listInstagramItems(session: RyokoSession, dayId: string) {
+  if (!supabase) return [];
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_list_day_items", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_day: dayId,
+      })
+    : await supabase.rpc("ryoko_list_account_day_items", {
+        p_trip: session.tripId,
+        p_day: dayId,
+      });
+  if (error) throw error;
+  return (data ?? []).filter(
+    (item: { kind?: string }) => item.kind === "instagram",
+  );
+}
+
+export async function deleteItem(
+  session: RyokoSession,
+  itemId: string,
+  dayId: string,
+) {
+  if (!supabase) return;
+  const { error } = session.code
+    ? await supabase.rpc("ryoko_delete_item", {
+        p_code: session.code,
+        p_trip: session.tripId,
+        p_item: itemId,
+      })
+    : await supabase.rpc("ryoko_delete_account_item", {
+        p_trip: session.tripId,
+        p_day: dayId,
+        p_item: itemId,
+      });
+  if (error) throw error;
+}
+
 export async function issueMember(
   session: RyokoSession,
   name: string,
