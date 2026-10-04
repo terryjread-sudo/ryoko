@@ -80,6 +80,18 @@ const canonicalInstagramUrl = (value: string) => {
   }
 };
 
+const instagramEmbedUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    const match = url.pathname.match(/^\/(p|reel|tv)\/([^/]+)/i);
+    if (hostname !== "instagram.com" || !match) return null;
+    return `https://www.instagram.com/${match[1].toLowerCase()}/${match[2]}/embed/`;
+  } catch {
+    return null;
+  }
+};
+
 const parseInstagramItem = (item: { id: string; content: string }) => {
   try {
     return { id: item.id, ...JSON.parse(item.content) } as InstagramItem;
@@ -465,6 +477,7 @@ export default function App() {
   const [instagramLibraryMode, setInstagramLibraryMode] = useState(false);
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
+  const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
   const [instagramUrl, setInstagramUrl] = useState("");
   const [instagramPreview, setInstagramPreview] =
     useState<InstagramPreview | null>(null);
@@ -1495,6 +1508,19 @@ export default function App() {
                               </span>
                             </>
                           </a>
+                          {instagramEmbedUrl(item.url) && (
+                            <button
+                              className="instagram-play"
+                              title="Play preview in Ryōkō"
+                              aria-label="Play preview in Ryōkō"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPlayingInstagram(item);
+                              }}
+                            >
+                              ▶
+                            </button>
+                          )}
                           <button
                             className="library-send"
                             title="Move to journey library"
@@ -1667,6 +1693,16 @@ export default function App() {
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
                       <span><b>{item.title}</b><small>by {item.author}</small>{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}</span>
                     </a>
+                    {instagramEmbedUrl(item.url) && (
+                      <button
+                        className="instagram-play"
+                        title="Play preview in Ryōkō"
+                        aria-label="Play preview in Ryōkō"
+                        onClick={() => setPlayingInstagram(item)}
+                      >
+                        ▶
+                      </button>
+                    )}
                     <button className="library-send" title="Send to a day" aria-label="Send to a day" onClick={() => setMoveLibraryItem(item)}>→</button>
                     <button className="instagram-remove" title="Remove from journey library" aria-label="Remove from journey library" onClick={async () => {
                       if (!item.id || !session || !window.confirm("Remove this Instagram inspiration?")) return;
@@ -2296,6 +2332,26 @@ export default function App() {
                   <b>{day.date} · {day.city || "Untitled day"}</b><small>{day.title || "Add a title to this day"}</small>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {playingInstagram && instagramEmbedUrl(playingInstagram.url) && (
+        <div className="backdrop instagram-player-backdrop" onClick={() => setPlayingInstagram(null)}>
+          <div className="instagram-player-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Instagram video preview">
+            <button className="close" onClick={() => setPlayingInstagram(null)} aria-label="Close video preview">×</button>
+            <div className="instagram-player-frame">
+              <iframe
+                src={instagramEmbedUrl(playingInstagram.url) ?? undefined}
+                title={playingInstagram.title}
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+            <div className="instagram-player-caption">
+              <b>{playingInstagram.title}</b>
+              <small>Instagram · {playingInstagram.author}</small>
             </div>
           </div>
         </div>
