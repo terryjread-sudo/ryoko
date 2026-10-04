@@ -17,11 +17,15 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (request.method !== 'POST') return json({ ok: false, error: 'POST required' }, 405)
   try {
-    const { url } = await request.json()
-    const parsed = new URL(String(url))
-    if (!(parsed.hostname === 'instagram.com' || parsed.hostname.endsWith('.instagram.com')) || !/^\/(p|reel|tv)\//.test(parsed.pathname)) {
+    const payload = await request.json() as { url?: unknown }
+    const rawUrl = typeof payload.url === 'string' ? payload.url.trim() : ''
+    const parsed = new URL(rawUrl)
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '')
+    const pathname = parsed.pathname.replace(/\/+$/, '')
+    if (hostname !== 'instagram.com' || !/^\/(p|reel|tv)\/[^/]+$/i.test(pathname)) {
       return json({ ok: false, error: 'A valid Instagram post, Reel, or video URL is required.' }, 400)
     }
+    parsed.pathname = `${pathname}/`
     const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; RyokoMetadata/1.0)', Accept: 'text/html,application/json' }
     const [oembedResult, pageResult] = await Promise.allSettled([
       fetch(`https://www.instagram.com/oembed/?url=${encodeURIComponent(parsed.toString())}`, { headers }),

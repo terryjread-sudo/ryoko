@@ -8,6 +8,7 @@ export type InstagramPreview = {
   location?: string;
   thumbnailUrl?: string;
   fallback: boolean;
+  error?: string;
 };
 
 export async function resolveInstagramUrl(
@@ -25,7 +26,11 @@ export async function resolveInstagramUrl(
       "instagram-metadata",
       { body: { url } },
     );
-    if (error || !data?.ok) return fallback;
+    if (error || !data?.ok)
+      return {
+        ...fallback,
+        error: data?.error || error?.message || "Metadata lookup failed",
+      };
     return {
       url,
       title: data.title || fallback.title,
@@ -33,6 +38,7 @@ export async function resolveInstagramUrl(
       author: data.author || fallback.author,
       location: data.location,
       thumbnailUrl: data.thumbnailUrl,
+      error: data.error,
       fallback: false,
     };
   } catch {
