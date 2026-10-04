@@ -334,10 +334,33 @@
   background: #fffaf7;
   border: 1px solid #ead9d1;
   border-radius: 9px;
-  display: flex;
+  display: grid;
   gap: 8px;
+  grid-template-columns: 1fr auto auto auto;
   overflow: hidden;
   padding: 6px;
+}
+
+.instagram-item > a {
+  grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+}
+
+.instagram-item > button {
+  margin-top: 2px;
+}
+
+.instagram-item > .instagram-play {
+  grid-column: 2;
+}
+
+.instagram-item > .library-send {
+  grid-column: 3;
+}
+
+.instagram-item > .instagram-remove {
+  grid-column: 4;
 }
 .instagram-item[draggable="true"] {
   cursor: grab;
