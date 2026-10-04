@@ -23,3 +23,17 @@ returns table(display_name text, avatar_color text)
 language sql security invoker set search_path = public as $$
   select display_name, avatar_color from public.ryoko_account_profiles where user_id = auth.uid();
 $$;
+
+create table if not exists public.ryoko_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.ryoko_admins enable row level security;
+drop policy if exists ryoko_admins_self on public.ryoko_admins;
+create policy ryoko_admins_self on public.ryoko_admins for select using (auth.uid() = user_id);
+
+create or replace function public.ryoko_is_admin()
+returns boolean language sql security definer set search_path = public as $$
+  select exists (select 1 from public.ryoko_admins where user_id = auth.uid());
+$$;
