@@ -343,6 +343,16 @@ export async function listAuditEvents(session: RyokoSession) {
   return (data ?? []) as AuditEvent[];
 }
 
+export async function listTripMemberCount(session: RyokoSession) {
+  if (!supabase) return 1;
+  const { data, error } = await supabase.rpc("ryoko_count_trip_members", {
+    p_trip: session.tripId,
+    p_code: session.code || null,
+  });
+  if (error) throw error;
+  return Math.max(1, Number(data ?? 1));
+}
+
 export async function issueMember(
   session: RyokoSession,
   name: string,

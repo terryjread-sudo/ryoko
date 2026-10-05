@@ -10,6 +10,7 @@ import {
   joinTrip,
   listDays,
   listInstagramItems,
+  listTripMemberCount,
   listJourneyInstagramItems,
   listAuditEvents,
   moveItem,
@@ -487,6 +488,7 @@ export default function App() {
   );
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
   const [collaborators, setCollaborators] = useState<
     Array<{ name?: string; color?: string; activeDay?: number | null }>
   >([]);
@@ -769,8 +771,11 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setLoading(false);
+      setTotalMembers(0);
       return;
     }
+    setTotalMembers(1);
+    void listTripMemberCount(session).then(setTotalMembers).catch(() => undefined);
     setLoading(true);
     void listDays(session)
       .then(async (rows) => {
@@ -1377,7 +1382,7 @@ export default function App() {
           </div>
           <div className="collabs">
             <small>
-              {online} collaborators online <i />
+              {online} / {totalMembers || 1} collaborators online <i />
             </small>
           </div>
         </section>
@@ -1644,21 +1649,15 @@ export default function App() {
                                     </button>
                                   </>
                                 )}
-                                {!!item.places?.length && (
-                                  <span className="instagram-places">
-                                    {item.places.map((place) => (
-                                      <em key={place}>#{place}</em>
-                                    ))}
-                                  </span>
-                                )}
-                                {!!item.tags?.length && (
-                                  <span className="instagram-places">
-                                    {item.tags.map((tag) => <em key={tag}>#{tag}</em>)}
-                                  </span>
-                                )}
                               </span>
                             </>
                           </div>
+                          {!!(item.places?.length || item.tags?.length) && (
+                            <div className="instagram-card-tags" aria-label="Instagram tags">
+                              {item.places?.map((place) => <em key={`place-${place}`}>#{place}</em>)}
+                              {item.tags?.map((tag) => <em key={`tag-${tag}`}>#{tag}</em>)}
+                            </div>
+                          )}
                           <div className="instagram-actions">
                           {instagramEmbedUrl(item.url) && (
                             <button
@@ -1859,8 +1858,14 @@ export default function App() {
                       onClick={(event) => toggleInstagramCardDetails(item, event)}
                     >
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
-                      <span><b className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-card-title expanded" : "instagram-card-title"}>{item.title}</b><small>by {item.author}</small>{item.description && <><p className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption"}>{item.description}</p><button className="caption-toggle" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleInstagramCaption(item); }}>{expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}</button></>}{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}{!!item.tags?.length && <span className="instagram-places">{item.tags.map((tag) => <em key={tag}>#{tag}</em>)}</span>}</span>
+                      <span><b className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-card-title expanded" : "instagram-card-title"}>{item.title}</b><small>by {item.author}</small>{item.description && <><p className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption"}>{item.description}</p><button className="caption-toggle" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleInstagramCaption(item); }}>{expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}</button></>}</span>
                     </div>
+                    {!!(item.places?.length || item.tags?.length) && (
+                      <div className="instagram-card-tags" aria-label="Instagram tags">
+                        {item.places?.map((place) => <em key={`place-${place}`}>#{place}</em>)}
+                        {item.tags?.map((tag) => <em key={`tag-${tag}`}>#{tag}</em>)}
+                      </div>
+                    )}
                     <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
                       <button

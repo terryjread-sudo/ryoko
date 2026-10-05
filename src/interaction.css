@@ -497,6 +497,26 @@
   visibility: visible;
 }
 
+.instagram-card-tags {
+  background: #fffaf7;
+  border-top: 1px solid #ead9d1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 7px 10px 9px;
+  position: relative;
+  z-index: 2;
+}
+
+.instagram-card-tags em {
+  background: #eee5f7;
+  border-radius: 999px;
+  color: #735fa6;
+  font-size: 10px;
+  font-style: normal;
+  padding: 3px 7px;
+}
+
 .instagram-item img,
 .instagram-item-placeholder {
   background: #f0d7d2;
