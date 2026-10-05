@@ -391,7 +391,7 @@
   position: relative;
 }
 
-.instagram-item > a {
+.instagram-item > .instagram-card-content {
   align-items: stretch;
   display: block;
   min-height: 168px;
@@ -462,14 +462,14 @@
   border-color: #735fa6;
 }
 
-.instagram-item a {
+.instagram-card-content {
   color: inherit;
   display: block;
   min-width: 0;
   text-decoration: none;
 }
 
-.instagram-item > a > span:last-child {
+.instagram-card-content > span:last-child {
   background: rgb(255 250 247 / 86%);
   border: 1px solid rgb(234 217 209 / 72%);
   border-radius: 8px;

@@ -1601,7 +1601,7 @@ export default function App() {
                             setInstagramDragOver(null);
                           }}
                         >
-                          <a href={item.url} target="_blank" rel="noreferrer">
+                          <div className="instagram-card-content">
                             <>
                               {item.thumbnailUrl ? (
                                 <img src={item.thumbnailUrl} alt="" />
@@ -1643,7 +1643,7 @@ export default function App() {
                                 )}
                               </span>
                             </>
-                          </a>
+                          </div>
                           <div className="instagram-actions">
                           {instagramEmbedUrl(item.url) && (
                             <button
@@ -1839,10 +1839,10 @@ export default function App() {
               <div className="instagram-items">
                 {instagramLibrary.map((item) => (
                   <article className="instagram-item" key={item.id ?? item.url}>
-                    <a href={item.url} target="_blank" rel="noreferrer">
+                    <div className="instagram-card-content">
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
                       <span><b className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-card-title expanded" : "instagram-card-title"}>{item.title}</b><small>by {item.author}</small>{item.description && <><p className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption"}>{item.description}</p><button className="caption-toggle" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleInstagramCaption(item); }}>{expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}</button></>}{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}{!!item.tags?.length && <span className="instagram-places">{item.tags.map((tag) => <em key={tag}>#{tag}</em>)}</span>}</span>
-                    </a>
+                    </div>
                     <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
                       <button
