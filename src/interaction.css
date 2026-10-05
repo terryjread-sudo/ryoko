@@ -354,9 +354,25 @@
   grid-column: 2;
   grid-row: 1;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 2px;
   justify-content: flex-start;
+}
+
+.instagram-actions .instagram-remove {
+  order: 1;
+}
+
+.instagram-actions .instagram-edit {
+  order: 2;
+}
+
+.instagram-actions .library-send {
+  order: 3;
+}
+
+.instagram-actions .instagram-play {
+  order: 4;
 }
 .instagram-item[draggable="true"] {
   cursor: grab;
@@ -453,6 +469,13 @@
   font-size: 1.1rem;
 }
 
+.instagram-edit {
+  background: #fff;
+  border: 1px solid #d9c8aa;
+  color: #a47a2f;
+  font-size: 0.9rem;
+}
+
 .library-send {
   background: #fff;
   border: 1px solid #cfc4df;
@@ -481,6 +504,11 @@
 .library-send:hover,
 .library-send:focus-visible {
   background: #f3eff9;
+}
+
+.instagram-edit:hover,
+.instagram-edit:focus-visible {
+  background: #fff8e7;
 }
 
 .instagram-play:hover,

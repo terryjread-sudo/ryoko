@@ -481,6 +481,10 @@ export default function App() {
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
+  const [editingInstagram, setEditingInstagram] = useState<{
+    itemId: string;
+    dayIndex: number | null;
+  } | null>(null);
   const [instagramUrl, setInstagramUrl] = useState("");
   const [instagramPreview, setInstagramPreview] =
     useState<InstagramPreview | null>(null);
@@ -793,6 +797,7 @@ export default function App() {
         .catch((e) => setError(e.message));
   };
   const resetInstagramComposer = () => {
+    setEditingInstagram(null);
     setInstagramUrl("");
     setInstagramPreview(null);
     setInstagramError("");
@@ -809,6 +814,25 @@ export default function App() {
     setInstagramDay(null);
     setInstagramLibraryMode(true);
     resetInstagramComposer();
+  };
+  const editInstagram = async (item: InstagramItem, dayIndex?: number) => {
+    setInstagramDay(dayIndex ?? null);
+    setInstagramLibraryMode(dayIndex === undefined);
+    setEditingInstagram(item.id ? { itemId: item.id, dayIndex: dayIndex ?? null } : null);
+    setInstagramUrl(item.url);
+    setInstagramPreview(null);
+    setInstagramError("");
+    setInstagramPlaces(item.places ?? []);
+    setInstagramTags(item.tags ?? []);
+    setUseInstagramLocation(false);
+    setInstagramLoading(true);
+    try {
+      setInstagramPreview(await resolveInstagramUrl(item.url));
+    } catch (e) {
+      setInstagramError((e as Error).message || "We couldn't preview that link.");
+    } finally {
+      setInstagramLoading(false);
+    }
   };
   const previewInstagram = async () => {
     const value = instagramUrl.trim();
@@ -864,9 +888,9 @@ export default function App() {
     try {
       const canonicalUrl = canonicalInstagramUrl(instagramPreview.url);
       const duplicate = [...instagramLibrary, ...days.flatMap((entry) => entry.instagramItems)].find(
-        (item) => canonicalInstagramUrl(item.url) === canonicalUrl,
+        (item) => canonicalInstagramUrl(item.url) === canonicalUrl && item.id !== editingInstagram?.itemId,
       );
-      if (duplicate && !instagramLibraryMode) {
+      if (duplicate && !editingInstagram) {
         setInstagramError("This Instagram video is already saved in this journey.");
         return;
       }
@@ -888,8 +912,9 @@ export default function App() {
             content: metadata,
             completed: false,
           });
+      const savedId = typeof saved === "string" ? saved : saved?.id;
       const nextItem: InstagramItem = {
-        id: saved ?? undefined,
+        id: savedId ?? editingInstagram?.itemId,
         url: instagramPreview.url,
         title: instagramPreview.title,
         description: instagramPreview.description,
@@ -899,34 +924,26 @@ export default function App() {
         tags: instagramTags,
       };
       if (instagramLibraryMode) {
-        setInstagramLibrary((current) => [
-          ...current.filter((item) => canonicalInstagramUrl(item.url) !== canonicalUrl),
-          nextItem,
-        ]);
+        setInstagramLibrary((current) => editingInstagram
+          ? current.map((item) => item.id === editingInstagram.itemId ? nextItem : item)
+          : [
+              ...current.filter((item) => canonicalInstagramUrl(item.url) !== canonicalUrl),
+              nextItem,
+            ]);
       }
       void recordAuditEvent(session, "added_instagram", {
         title: instagramPreview.title,
         url: instagramPreview.url,
       });
-      showToast("Instagram inspiration saved");
+      showToast(editingInstagram ? "Instagram inspiration updated" : "Instagram inspiration saved");
       setDays((current) =>
         current.map((item, i) =>
           !instagramLibraryMode && i === index
             ? {
                 ...item,
-                instagramItems: [
-                  ...item.instagramItems,
-                  {
-                    id: saved?.id,
-                    url: instagramPreview.url,
-                    title: instagramPreview.title,
-                    description: instagramPreview.description,
-                    author: instagramPreview.author,
-                    thumbnailUrl: instagramPreview.thumbnailUrl,
-                    places: instagramPlaces,
-                    tags: instagramTags,
-                  },
-                ],
+                instagramItems: editingInstagram
+                  ? item.instagramItems.map((entry) => entry.id === editingInstagram.itemId ? nextItem : entry)
+                  : [...item.instagramItems, nextItem],
                 subLocation: useInstagramLocation
                   ? instagramPreview.location
                   : item.subLocation,
@@ -936,6 +953,7 @@ export default function App() {
       );
       setInstagramDay(null);
       setInstagramLibraryMode(false);
+      setEditingInstagram(null);
     } catch (e) {
       setInstagramError((e as Error).message);
     }
@@ -1624,6 +1642,17 @@ export default function App() {
                           >
                             ×
                           </button>
+                          <button
+                            className="instagram-action-button instagram-edit"
+                            title="Preview again and edit tags"
+                            aria-label="Preview again and edit tags"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void editInstagram(item, index);
+                            }}
+                          >
+                            ✎
+                          </button>
                           </div>
                         </article>
                       ))}
@@ -1750,6 +1779,7 @@ export default function App() {
                         showToast("Instagram inspiration removed");
                       } catch (e) { setError((e as Error).message); }
                     }}>×</button>
+                    <button className="instagram-action-button instagram-edit" title="Preview again and edit tags" aria-label="Preview again and edit tags" onClick={() => void editInstagram(item)}>✎</button>
                     </div>
                   </article>
                 ))}
@@ -2402,7 +2432,11 @@ export default function App() {
               onClick={() => void saveInstagram()}
               disabled={!instagramPreview}
             >
-              {instagramLibraryMode ? "Save to journey library ✦" : "Save to this day ✦"}
+              {editingInstagram
+                ? "Update Instagram inspiration ✦"
+                : instagramLibraryMode
+                  ? "Save to journey library ✦"
+                  : "Save to this day ✦"}
             </button>
           </div>
         </div>
