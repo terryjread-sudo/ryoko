@@ -948,13 +948,36 @@
 }
 
 .profile-avatar {
+  background: #735fa6;
+  border: 0;
   border-radius: 50%;
   color: white;
+  cursor: pointer;
   display: grid;
   font-weight: 700;
   height: 46px;
   place-items: center;
   width: 46px;
+}
+
+.profile-avatar:hover,
+.profile-avatar:focus-visible {
+  box-shadow: 0 0 0 3px #efc2c466;
+  outline: none;
+}
+
+.avatar-color-picker {
+  height: 1px !important;
+  opacity: 0;
+  padding: 0 !important;
+  pointer-events: none;
+  position: absolute;
+  width: 1px !important;
+}
+
+.account-modal {
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
 .profile-summary b,

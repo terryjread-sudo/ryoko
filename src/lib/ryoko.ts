@@ -351,13 +351,20 @@ export async function issueMember(
 ) {
   if (!supabase || session.role !== "owner")
     throw new Error("Owner access required");
-  const { data, error } = await supabase.rpc("ryoko_issue_member", {
-    p_owner_code: session.code,
-    p_trip: session.tripId,
-    p_name: name,
-    p_role: role,
-    p_color: color,
-  });
+  const { data, error } = session.code
+    ? await supabase.rpc("ryoko_issue_member", {
+        p_owner_code: session.code,
+        p_trip: session.tripId,
+        p_name: name,
+        p_role: role,
+        p_color: color,
+      })
+    : await supabase.rpc("ryoko_issue_account_member", {
+        p_trip: session.tripId,
+        p_name: name,
+        p_role: role,
+        p_color: color,
+      });
   if (error) throw error;
   return data;
 }

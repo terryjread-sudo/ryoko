@@ -558,6 +558,7 @@ export default function App() {
     displayName: "",
     avatarColor: "#735fa6",
   });
+  const avatarColorInputRef = useRef<HTMLInputElement>(null);
   const [accountIsAdmin, setAccountIsAdmin] = useState(false);
   const [accountCodes, setAccountCodes] = useState<Record<string, string>>({});
   const [mapLabelLanguage, setMapLabelLanguage] = useState<
@@ -663,6 +664,7 @@ export default function App() {
     );
   const accountInitial =
     accountDisplayName.trim().charAt(0).toUpperCase() || "?";
+  const visibleAccountPlans = accountPlans.slice(0, 10);
   const saveProfile = async () => {
     try {
       await saveAccountProfile(
@@ -1956,7 +1958,7 @@ export default function App() {
             </h2>
             {accountPlans.length ? (
               <div className="journey-options">
-                {accountPlans.map((plan) => (
+                {visibleAccountPlans.map((plan) => (
                   <button
                     className={
                       plan.trip_id === session?.tripId
@@ -2025,12 +2027,29 @@ export default function App() {
             ) : (
               <>
                 <div className="profile-summary">
-                  <span
+                  <button
+                    type="button"
                     className="profile-avatar"
                     style={{ background: accountProfile.avatarColor }}
+                    title="Change avatar colour"
+                    aria-label="Change avatar colour"
+                    onClick={() => avatarColorInputRef.current?.click()}
                   >
                     {accountInitial}
-                  </span>
+                  </button>
+                  <input
+                    ref={avatarColorInputRef}
+                    className="avatar-color-picker"
+                    type="color"
+                    value={accountProfile.avatarColor}
+                    aria-label="Choose avatar colour"
+                    onChange={(e) =>
+                      setAccountProfile((current) => ({
+                        ...current,
+                        avatarColor: e.target.value,
+                      }))
+                    }
+                  />
                   <div>
                     <b>{accountDisplayName}</b>
                     <small>{accountUser.email}</small>
@@ -2054,19 +2073,6 @@ export default function App() {
                     }
                   />
                 </label>
-                <label>
-                  Avatar colour
-                  <input
-                    type="color"
-                    value={accountProfile.avatarColor}
-                    onChange={(e) =>
-                      setAccountProfile((current) => ({
-                        ...current,
-                        avatarColor: e.target.value,
-                      }))
-                    }
-                  />
-                </label>
                 <button
                   className="secondary full"
                   onClick={() => void saveProfile()}
@@ -2083,7 +2089,7 @@ export default function App() {
                 )}
                 <h3 className="account-heading">My plans</h3>
                 {accountPlans.length ? (
-                  accountPlans.map((plan) => (
+                  visibleAccountPlans.map((plan) => (
                     <div className="plan-row" key={plan.trip_id}>
                       <b>{plan.name}</b>
                       <span>
@@ -2131,6 +2137,9 @@ export default function App() {
                   ))
                 ) : (
                   <p className="account-empty">No linked plans yet.</p>
+                )}
+                {accountPlans.length > 10 && (
+                  <p className="account-empty">Showing your 10 most recent plans.</p>
                 )}
                 {accountIsAdmin && (
                   <button
