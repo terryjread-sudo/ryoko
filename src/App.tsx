@@ -961,6 +961,7 @@ export default function App() {
       const saved = instagramLibraryMode
         ? await saveJourneyInstagramItem(session, metadata, canonicalUrl)
         : await saveItem(session, {
+            id: editingInstagram?.itemId,
             dayId: day!.id!,
             kind: "instagram",
             content: metadata,
