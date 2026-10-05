@@ -341,13 +341,30 @@
   color: #a24e59;
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.82rem;
-  gap: 2px;
+  gap: 1px;
   justify-content: center;
   margin-left: 7px;
   min-height: 30px;
   padding: 4px 7px;
   vertical-align: middle;
+}
+
+.instagram-glyph {
+  fill: none;
+  height: 17px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  width: 17px;
+}
+
+.instagram-glyph-dot {
+  fill: currentColor;
+  stroke: none;
+}
+
+.instagram-add-plus {
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .instagram-inline-action:hover,
@@ -365,33 +382,39 @@
 }
 
 .instagram-item {
-  align-items: center;
   background: #fffaf7;
   border: 1px solid #ead9d1;
   border-radius: 9px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-content: start;
+  display: block;
+  min-height: 168px;
   overflow: hidden;
-  padding: 6px;
+  position: relative;
 }
 
 .instagram-item > a {
-  grid-column: 1;
-  grid-row: 1;
+  align-items: stretch;
+  display: block;
+  min-height: 168px;
   min-width: 0;
+  overflow: hidden;
+  padding: 10px 50px 10px 10px;
+  position: relative;
   width: 100%;
 }
 
 .instagram-actions {
   align-items: center;
-  grid-column: 2;
-  grid-row: 1;
+  background: rgb(255 250 247 / 82%);
+  border-radius: 999px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   justify-content: flex-start;
+  padding: 4px 2px;
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  z-index: 3;
 }
 
 .instagram-actions .instagram-remove {
@@ -440,29 +463,41 @@
 }
 
 .instagram-item a {
-  align-items: center;
   color: inherit;
-  display: flex;
-  flex: 1;
-  gap: 9px;
+  display: block;
   min-width: 0;
   text-decoration: none;
 }
 
 .instagram-item > a > span:last-child {
+  background: rgb(255 250 247 / 86%);
+  border: 1px solid rgb(234 217 209 / 72%);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  display: block;
+  max-height: 148px;
   min-width: 0;
+  overflow-y: auto;
+  padding: 8px 10px;
+  position: relative;
+  z-index: 1;
 }
 
 .instagram-item img,
 .instagram-item-placeholder {
   background: #f0d7d2;
   border-radius: 6px;
-  display: grid;
-  flex: 0 0 46px;
-  height: 46px;
+  display: block;
+  height: 100%;
+  inset: 0;
   object-fit: cover;
+  position: absolute;
+  width: 100%;
+}
+
+.instagram-item-placeholder {
+  display: grid;
   place-items: center;
-  width: 46px;
 }
 
 .instagram-item b,
@@ -677,7 +712,10 @@
 }
 
 .library-heading .secondary {
+  align-items: center;
+  display: inline-flex;
   font-size: 0.72rem;
+  gap: 5px;
   padding: 8px 10px;
 }
 

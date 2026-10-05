@@ -107,6 +107,16 @@ const parseInstagramItem = (item: { id: string; content: string }) => {
   }
 };
 
+function InstagramGlyph() {
+  return (
+    <svg className="instagram-glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle className="instagram-glyph-dot" cx="17.5" cy="6.5" r="1.1" />
+    </svg>
+  );
+}
+
 function InstagramMetadata({
   text,
   selectedPlaces,
@@ -1561,7 +1571,8 @@ export default function App() {
                         openInstagram(index);
                       }}
                     >
-                      ◎＋
+                      <InstagramGlyph />
+                      <span className="instagram-add-plus">＋</span>
                     </button>
                   {day.subLocation && (
                     <p className="sub-location">⌖ {day.subLocation}</p>
@@ -1818,7 +1829,8 @@ export default function App() {
                 <h3 id="instagram-library-title">Instagram <em>library</em></h3>
               </div>
               <button className="secondary" onClick={openInstagramLibrary} disabled={!session}>
-                ＋ Add video
+                <InstagramGlyph />
+                <span>Add video</span>
               </button>
             </div>
             {!instagramLibrary.length ? (
