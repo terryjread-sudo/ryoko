@@ -1,4 +1,8 @@
 -- Member invitations and administrator member management.
+-- The earlier version of this RPC was deployed with parameter defaults. PostgreSQL
+-- does not allow CREATE OR REPLACE FUNCTION to remove those defaults, so drop the
+-- exact overload before recreating it with the current signature.
+drop function if exists public.ryoko_issue_member(text, uuid, text, public.ryoko_member_role, text);
 create or replace function public.ryoko_issue_member(
   p_owner_code text,
   p_trip uuid,

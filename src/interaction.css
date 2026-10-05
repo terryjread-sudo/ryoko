@@ -701,8 +701,9 @@
 
 .instagram-preview img,
 .preview-placeholder {
-  width: 72px;
-  height: 72px;
+  flex: 0 0 82px;
+  width: 82px;
+  height: 82px;
   border-radius: 8px;
   object-fit: cover;
 }
@@ -1153,6 +1154,13 @@
 
   .move-button {
     padding: 7px 4px;
+  }
+
+  .instagram-preview img,
+  .preview-placeholder {
+    flex-basis: 76px;
+    height: 76px;
+    width: 76px;
   }
 }
 .save {
