@@ -1544,25 +1544,28 @@ export default function App() {
                       <small>Viewing this day</small>
                     </div>
                   )}
-                  <input
-                    className="inline-input title-input"
-                    placeholder="Give this day a title"
-                    value={day.title}
-                    onChange={(e) => updateDay(index, "title", e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                    <input
+                      className="inline-input title-input"
+                      placeholder="Give this day a title"
+                      value={day.title}
+                      onChange={(e) => updateDay(index, "title", e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      className="instagram-inline-action"
+                      type="button"
+                      title="Add Instagram inspiration to this day"
+                      aria-label="Add Instagram inspiration to this day"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInstagram(index);
+                      }}
+                    >
+                      ◎＋
+                    </button>
                   {day.subLocation && (
                     <p className="sub-location">⌖ {day.subLocation}</p>
                   )}
-                  <button
-                    className="instagram-trigger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openInstagram(index);
-                    }}
-                  >
-                    Add Instagram inspiration
-                  </button>
                   {!day.instagramItems.length && (
                     <small className="empty-hint">
                       Save a post or Reel here to keep ideas attached to this day.
