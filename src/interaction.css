@@ -678,6 +678,10 @@
   text-transform: uppercase;
 }
 
+.instagram-tag-picker > .standard-tag-label {
+  margin-top: 12px;
+}
+
 .tag-suggestion-grid {
   display: grid;
   gap: 6px;

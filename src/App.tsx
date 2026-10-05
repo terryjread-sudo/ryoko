@@ -65,7 +65,10 @@ type InstagramItem = {
   author: string;
   thumbnailUrl?: string;
   places?: string[];
+  tags?: string[];
 };
+
+const instagramStandardTags = ["food", "tips", "activity", "travel"];
 
 const canonicalInstagramUrl = (value: string) => {
   try {
@@ -484,6 +487,7 @@ export default function App() {
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState("");
   const [instagramPlaces, setInstagramPlaces] = useState<string[]>([]);
+  const [instagramTags, setInstagramTags] = useState<string[]>([]);
   const [draggedInstagram, setDraggedInstagram] = useState<{
     dayIndex: number;
     itemId: string;
@@ -793,6 +797,7 @@ export default function App() {
     setInstagramPreview(null);
     setInstagramError("");
     setInstagramPlaces([]);
+    setInstagramTags([]);
     setUseInstagramLocation(false);
   };
   const openInstagram = (index: number) => {
@@ -828,6 +833,13 @@ export default function App() {
       current.includes(place.english)
         ? current.filter((name) => name !== place.english)
         : [...current, place.english],
+    );
+  };
+  const toggleInstagramTag = (tag: string) => {
+    setInstagramTags((current) =>
+      current.includes(tag)
+        ? current.filter((value) => value !== tag)
+        : [...current, tag],
     );
   };
   const instagramDetectedPlaces = useMemo(() => {
@@ -866,6 +878,7 @@ export default function App() {
         thumbnailUrl: instagramPreview.thumbnailUrl,
         location: instagramPreview.location,
         places: instagramPlaces,
+        tags: instagramTags,
       });
       const saved = instagramLibraryMode
         ? await saveJourneyInstagramItem(session, metadata, canonicalUrl)
@@ -883,6 +896,7 @@ export default function App() {
         author: instagramPreview.author,
         thumbnailUrl: instagramPreview.thumbnailUrl,
         places: instagramPlaces,
+        tags: instagramTags,
       };
       if (instagramLibraryMode) {
         setInstagramLibrary((current) => [
@@ -910,6 +924,7 @@ export default function App() {
                     author: instagramPreview.author,
                     thumbnailUrl: instagramPreview.thumbnailUrl,
                     places: instagramPlaces,
+                    tags: instagramTags,
                   },
                 ],
                 subLocation: useInstagramLocation
@@ -1520,6 +1535,11 @@ export default function App() {
                                     ))}
                                   </span>
                                 )}
+                                {!!item.tags?.length && (
+                                  <span className="instagram-places">
+                                    {item.tags.map((tag) => <em key={tag}>#{tag}</em>)}
+                                  </span>
+                                )}
                               </span>
                             </>
                           </a>
@@ -1708,7 +1728,7 @@ export default function App() {
                   <article className="instagram-item" key={item.id ?? item.url}>
                     <a href={item.url} target="_blank" rel="noreferrer">
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
-                      <span><b>{item.title}</b><small>by {item.author}</small>{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}</span>
+                      <span><b>{item.title}</b><small>by {item.author}</small>{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}{!!item.tags?.length && <span className="instagram-places">{item.tags.map((tag) => <em key={tag}>#{tag}</em>)}</span>}</span>
                     </a>
                     <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
@@ -2272,6 +2292,24 @@ export default function App() {
                 ) : (
                   <span className="tag-suggestion-empty">No known Japanese place names found in this preview.</span>
                 )}
+                <small className="standard-tag-label">Standard tags</small>
+                <div className="tag-suggestion-grid">
+                  {instagramStandardTags.map((tag) => {
+                    const selected = instagramTags.includes(tag);
+                    return (
+                      <button
+                        type="button"
+                        className={selected ? "tag-suggestion selected" : "tag-suggestion"}
+                        key={tag}
+                        onClick={() => toggleInstagramTag(tag)}
+                        aria-pressed={selected}
+                      >
+                        <span>#{tag}</span>
+                        {selected && <strong aria-label="Selected">✓</strong>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <button
@@ -2339,6 +2377,11 @@ export default function App() {
                       {instagramPlaces.map((place) => (
                         <em key={place}>#{place}</em>
                       ))}
+                    </span>
+                  )}
+                  {!!instagramTags.length && (
+                    <span className="selected-place-tags">
+                      {instagramTags.map((tag) => <em key={tag}>#{tag}</em>)}
                     </span>
                   )}
                 </div>
