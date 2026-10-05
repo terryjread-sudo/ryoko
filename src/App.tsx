@@ -35,6 +35,9 @@ import {
   linkCurrentTrip,
   listAccountPlans,
   listAdminPlans,
+  listAdminPlanMembers,
+  revokeAdminPlanMember,
+  restoreAdminPlanMember,
   requestAccountLink,
   revealAccountTripCode,
   restoreAdminPlan,
@@ -43,6 +46,7 @@ import {
   unlinkPlan,
   signInWithGithub,
   type AccountPlan,
+  type AdminPlanMember,
 } from "./lib/account";
 import { japanPlaces, placeSearchTerms, type JapanPlace } from "./data/japanPlaces";
 
@@ -468,6 +472,12 @@ export default function App() {
   const [to, setTo] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
+  const [inviteError, setInviteError] = useState("");
+  const [issuedMember, setIssuedMember] = useState<{
+    name: string;
+    role: "editor" | "viewer";
+    code: string;
+  } | null>(null);
   const [active, setActive] = useState(0);
   const [dragged, setDragged] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
@@ -481,6 +491,7 @@ export default function App() {
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
+  const [expandedInstagramCaptions, setExpandedInstagramCaptions] = useState<Set<string>>(new Set());
   const [editingInstagram, setEditingInstagram] = useState<{
     itemId: string;
     dayIndex: number | null;
@@ -509,6 +520,8 @@ export default function App() {
   const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
   const [adminPlans, setAdminPlans] = useState<AccountPlan[]>([]);
   const [adminModal, setAdminModal] = useState(false);
+  const [adminMembersPlan, setAdminMembersPlan] = useState<AccountPlan | null>(null);
+  const [adminMembers, setAdminMembers] = useState<AdminPlanMember[]>([]);
   const [destinationFocus, setDestinationFocus] = useState<number | null>(null);
   const [accountProfile, setAccountProfile] = useState({
     displayName: "",
@@ -522,6 +535,16 @@ export default function App() {
   const [mapProvider, setMapProvider] = useState<
     "openstreetmap" | "google"
   >("openstreetmap");
+
+  const toggleInstagramCaption = (item: InstagramItem) => {
+    const key = item.id ?? item.url;
+    setExpandedInstagramCaptions((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const showToast = (message: string, undo?: () => void) => {
     setToast({ message, undo });
@@ -1279,7 +1302,10 @@ export default function App() {
           </button>
           <button
             className="primary"
-            onClick={() => setModal("invite")}
+            onClick={() => {
+              setInviteError("");
+              setModal("invite");
+            }}
             disabled={!session}
           >
             ＋ Add people
@@ -1546,6 +1572,22 @@ export default function App() {
                               <span>
                                 <b>{item.title}</b>
                                 <small>by {item.author}</small>
+                                {item.description && (
+                                  <>
+                                    <p className={(expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption")}>{item.description}</p>
+                                    <button
+                                      className="caption-toggle"
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        toggleInstagramCaption(item);
+                                      }}
+                                    >
+                                      {expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}
+                                    </button>
+                                  </>
+                                )}
                                 {!!item.places?.length && (
                                   <span className="instagram-places">
                                     {item.places.map((place) => (
@@ -1757,7 +1799,7 @@ export default function App() {
                   <article className="instagram-item" key={item.id ?? item.url}>
                     <a href={item.url} target="_blank" rel="noreferrer">
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
-                      <span><b>{item.title}</b><small>by {item.author}</small>{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}{!!item.tags?.length && <span className="instagram-places">{item.tags.map((tag) => <em key={tag}>#{tag}</em>)}</span>}</span>
+                      <span><b>{item.title}</b><small>by {item.author}</small>{item.description && <><p className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption"}>{item.description}</p><button className="caption-toggle" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleInstagramCaption(item); }}>{expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}</button></>}{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}{!!item.tags?.length && <span className="instagram-places">{item.tags.map((tag) => <em key={tag}>#{tag}</em>)}</span>}</span>
                     </a>
                     <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
@@ -2220,6 +2262,19 @@ export default function App() {
                   <button
                     className="plan-open"
                     onClick={async () => {
+                      try {
+                        setAdminMembers(await listAdminPlanMembers(plan.trip_id));
+                        setAdminMembersPlan(plan);
+                      } catch (e) {
+                        setAccountMessage((e as Error).message);
+                      }
+                    }}
+                  >
+                    Members
+                  </button>
+                  <button
+                    className="plan-open"
+                    onClick={async () => {
                       if (plan.archived_at) {
                         await restoreAdminPlan(plan.trip_id);
                         setAdminPlans((items) =>
@@ -2262,6 +2317,46 @@ export default function App() {
                 </div>
               </div>
             ))}
+            {adminMembersPlan && (
+              <section className="admin-members" aria-label={`Users on ${adminMembersPlan.name}`}>
+                <div className="admin-members-heading">
+                  <h3>{adminMembersPlan.name} users</h3>
+                  <button className="plan-open" onClick={() => setAdminMembersPlan(null)}>Close</button>
+                </div>
+                {!adminMembers.length ? (
+                  <p className="account-empty">No users found.</p>
+                ) : (
+                  adminMembers.map((member) => (
+                    <div className="admin-member-row" key={member.member_id}>
+                      <div>
+                        <b>{member.display_name}</b>
+                        <small>{member.role} · {member.revoked_at ? "Revoked" : "Active"}</small>
+                      </div>
+                      {member.role !== "owner" && (
+                        <button
+                          className={member.revoked_at ? "plan-open" : "delete-plan"}
+                          onClick={async () => {
+                            try {
+                              if (member.revoked_at) {
+                                await restoreAdminPlanMember(adminMembersPlan.trip_id, member.member_id);
+                              } else {
+                                if (!window.confirm(`Revoke ${member.display_name}'s access?`)) return;
+                                await revokeAdminPlanMember(adminMembersPlan.trip_id, member.member_id);
+                              }
+                              setAdminMembers(await listAdminPlanMembers(adminMembersPlan.trip_id));
+                            } catch (e) {
+                              setAccountMessage((e as Error).message);
+                            }
+                          }}
+                        >
+                          {member.revoked_at ? "Restore" : "Revoke"}
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </section>
+            )}
           </div>
         </div>
       )}
@@ -2641,12 +2736,26 @@ export default function App() {
                 <option value="viewer">Viewer</option>
               </select>
             </label>
+            {inviteError && <p className="form-error">{inviteError}</p>}
             <button
               className="primary full"
               onClick={async () => {
-                if (session && name)
-                  await issueMember(session, name, inviteRole, "#df8f9b");
-                setModal(null);
+                if (!session || !name.trim()) {
+                  setInviteError("Enter a name before generating an access code.");
+                  return;
+                }
+                try {
+                  const result = await issueMember(session, name, inviteRole, "#df8f9b");
+                  setIssuedMember({
+                    name: String(result?.name ?? name.trim()),
+                    role: (result?.role ?? inviteRole) as "editor" | "viewer",
+                    code: String(result?.code ?? ""),
+                  });
+                  setName("");
+                  setModal("code");
+                } catch (e) {
+                  setInviteError((e as Error).message || "Unable to generate the access code.");
+                }
               }}
             >
               Generate access code ✦
@@ -2658,23 +2767,24 @@ export default function App() {
         <div className="backdrop">
           <div className="modal code-modal">
             <span className="flower">✿</span>
-            <p className="eyebrow">YOUR OWNER ACCESS CODE</p>
+            <p className="eyebrow">{issuedMember ? "NEW MEMBER ACCESS CODE" : "YOUR OWNER ACCESS CODE"}</p>
             <h2>
               Keep this <em>safe.</em>
             </h2>
             <p className="modal-copy">
-              Use this permanent code to rejoin your journey and manage
-              contributors.
+              {issuedMember
+                ? `${issuedMember.name} can use this ${issuedMember.role} code to join the journey.`
+                : "Use this permanent code to rejoin your journey and manage contributors."}
             </p>
-            <code className="owner-code">{session?.code}</code>
+            <code className="owner-code">{issuedMember?.code ?? session?.code}</code>
             <button
               className="primary full"
               onClick={() => {
-                void navigator.clipboard?.writeText(session?.code ?? "");
+                void navigator.clipboard?.writeText(issuedMember?.code ?? session?.code ?? "");
                 setModal(null);
               }}
             >
-              Copy owner code
+              Copy access code
             </button>
             <button className="secondary full" onClick={() => setModal(null)}>
               I’ve saved it

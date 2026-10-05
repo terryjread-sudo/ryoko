@@ -449,6 +449,40 @@
   white-space: nowrap;
 }
 
+.instagram-caption {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: #766871;
+  display: -webkit-box;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  margin: 4px 0 0;
+  overflow: hidden;
+  white-space: normal;
+}
+
+.instagram-caption.expanded {
+  display: block;
+}
+
+.caption-toggle {
+  background: transparent;
+  border: 0;
+  color: #735fa6;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.caption-toggle:hover,
+.caption-toggle:focus-visible {
+  color: #b55762;
+  outline: none;
+  text-decoration: underline;
+}
+
 .instagram-action-button {
   align-items: center;
   border-radius: 50%;
@@ -938,6 +972,41 @@
 }
 .admin-modal {
   max-width: 600px;
+}
+
+.admin-members {
+  border-top: 1px solid #eadfd7;
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+.admin-members-heading,
+.admin-member-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.admin-members-heading h3 {
+  color: #665b69;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.admin-member-row {
+  border-bottom: 1px solid #eee2dc;
+  padding: 9px 0;
+}
+
+.admin-member-row > div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-member-row small {
+  color: #a29a9d;
+  font-size: 0.7rem;
 }
 
 .journey-label {

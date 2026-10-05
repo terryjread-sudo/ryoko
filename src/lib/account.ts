@@ -11,6 +11,14 @@ export type AccountPlan = {
   created_at?: string | null;
 };
 
+export type AdminPlanMember = {
+  member_id: string;
+  display_name: string;
+  role: "owner" | "editor" | "viewer";
+  revoked_at?: string | null;
+  created_at: string;
+};
+
 export async function requestAccountLink(email: string) {
   if (!supabase) throw new Error("Supabase is not configured");
   const { error } = await supabase.auth.signInWithOtp({
@@ -65,6 +73,34 @@ export async function listAdminPlans() {
   if (error?.code === "PGRST202") return [] as AccountPlan[];
   if (error) throw error;
   return (data ?? []) as AccountPlan[];
+}
+
+export async function listAdminPlanMembers(tripId: string) {
+  if (!supabase) return [] as AdminPlanMember[];
+  const { data, error } = await supabase.rpc("ryoko_admin_list_trip_members", {
+    p_trip: tripId,
+  });
+  if (error?.code === "PGRST202") return [] as AdminPlanMember[];
+  if (error) throw error;
+  return (data ?? []) as AdminPlanMember[];
+}
+
+export async function revokeAdminPlanMember(tripId: string, memberId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_admin_revoke_member", {
+    p_trip: tripId,
+    p_member: memberId,
+  });
+  if (error) throw error;
+}
+
+export async function restoreAdminPlanMember(tripId: string, memberId: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("ryoko_admin_restore_member", {
+    p_trip: tripId,
+    p_member: memberId,
+  });
+  if (error) throw error;
 }
 
 export async function deleteAdminPlan(tripId: string) {
