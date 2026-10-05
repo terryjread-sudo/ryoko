@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
 import "./App.css";
 import "./interaction.css";
 import {
@@ -533,6 +533,7 @@ export default function App() {
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
   const [expandedInstagramCaptions, setExpandedInstagramCaptions] = useState<Set<string>>(new Set());
+  const [revealedInstagramCards, setRevealedInstagramCards] = useState<Set<string>>(new Set());
   const [editingInstagram, setEditingInstagram] = useState<{
     itemId: string;
     dayIndex: number | null;
@@ -581,6 +582,17 @@ export default function App() {
   const toggleInstagramCaption = (item: InstagramItem) => {
     const key = item.id ?? item.url;
     setExpandedInstagramCaptions((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleInstagramCardDetails = (item: InstagramItem, event: ReactMouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("button")) return;
+    const key = item.id ?? item.url;
+    setRevealedInstagramCards((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -1601,7 +1613,10 @@ export default function App() {
                             setInstagramDragOver(null);
                           }}
                         >
-                          <div className="instagram-card-content">
+                          <div
+                            className={`instagram-card-content ${revealedInstagramCards.has(item.id ?? item.url) ? "details-revealed" : "details-hidden"}`}
+                            onClick={(event) => toggleInstagramCardDetails(item, event)}
+                          >
                             <>
                               {item.thumbnailUrl ? (
                                 <img src={item.thumbnailUrl} alt="" />
@@ -1839,7 +1854,10 @@ export default function App() {
               <div className="instagram-items">
                 {instagramLibrary.map((item) => (
                   <article className="instagram-item" key={item.id ?? item.url}>
-                    <div className="instagram-card-content">
+                    <div
+                      className={`instagram-card-content ${revealedInstagramCards.has(item.id ?? item.url) ? "details-revealed" : "details-hidden"}`}
+                      onClick={(event) => toggleInstagramCardDetails(item, event)}
+                    >
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
                       <span><b className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-card-title expanded" : "instagram-card-title"}>{item.title}</b><small>by {item.author}</small>{item.description && <><p className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption"}>{item.description}</p><button className="caption-toggle" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleInstagramCaption(item); }}>{expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}</button></>}{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}{!!item.tags?.length && <span className="instagram-places">{item.tags.map((tag) => <em key={tag}>#{tag}</em>)}</span>}</span>
                     </div>

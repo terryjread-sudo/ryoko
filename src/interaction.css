@@ -464,6 +464,7 @@
 
 .instagram-card-content {
   color: inherit;
+  cursor: pointer;
   display: block;
   min-width: 0;
   text-decoration: none;
@@ -480,7 +481,19 @@
   overflow-y: auto;
   padding: 8px 10px;
   position: relative;
+  transition: opacity 160ms ease, visibility 160ms ease;
   z-index: 1;
+}
+
+.instagram-card-content.details-hidden > span:last-child {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.instagram-card-content.details-revealed > span:last-child {
+  opacity: 1;
+  visibility: visible;
 }
 
 .instagram-item img,
