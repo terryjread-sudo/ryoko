@@ -448,6 +448,17 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+
+.instagram-card-title {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  display: -webkit-box !important;
+  overflow: hidden;
+}
+
+.instagram-card-title.expanded {
+  display: block !important;
+}
 .instagram-item small {
   color: #927f79;
   font-size: 0.7rem;
