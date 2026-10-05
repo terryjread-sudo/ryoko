@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import "./App.css";
 import "./interaction.css";
 import {
@@ -257,6 +257,8 @@ function JapanMap({
   selectedIndex: number;
 }) {
   const [zoom, setZoom] = useState(5);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const mapDrag = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null);
   const width = 800;
   const height = 430;
   const points = days.map((day, index) => ({
@@ -294,6 +296,27 @@ function JapanMap({
     return [x, y] as [number, number];
   };
   const centerPoint = project(center[0], center[1], zoom);
+  const screenPoint = (coord: [number, number]) => [
+    width / 2 + project(coord[0], coord[1], zoom)[0] - centerPoint[0] + pan.x,
+    height / 2 + project(coord[0], coord[1], zoom)[1] - centerPoint[1] + pan.y,
+  ] as [number, number];
+  const beginMapDrag = (event: PointerEvent<SVGSVGElement>) => {
+    mapDrag.current = { x: pan.x, y: pan.y, startX: event.clientX, startY: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveMap = (event: PointerEvent<SVGSVGElement>) => {
+    if (!mapDrag.current) return;
+    setPan({
+      x: mapDrag.current.x + event.clientX - mapDrag.current.startX,
+      y: mapDrag.current.y + event.clientY - mapDrag.current.startY,
+    });
+  };
+  const endMapDrag = (event: PointerEvent<SVGSVGElement>) => {
+    mapDrag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
   const googleLanguage = labelLanguage === "japanese" ? "ja" : "en";
   const selectedCenter = points[selectedIndex]?.coord ?? center;
   const selectedTagged = taggedPoints.filter((point) => point.dayIndex === selectedIndex);
@@ -339,8 +362,8 @@ function JapanMap({
     return {
       tileX,
       tileY,
-      x: width / 2 + tileX * 256 - centerPoint[0],
-      y: height / 2 + tileY * 256 - centerPoint[1],
+      x: width / 2 + tileX * 256 - centerPoint[0] + pan.x,
+      y: height / 2 + tileY * 256 - centerPoint[1] + pan.y,
     };
   });
   return (
@@ -349,6 +372,14 @@ function JapanMap({
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="Interactive map of Japan"
+        onPointerDown={beginMapDrag}
+        onPointerMove={moveMap}
+        onPointerUp={endMapDrag}
+        onPointerCancel={endMapDrag}
+        onWheel={(event) => {
+          event.preventDefault();
+          setZoom((value) => Math.max(3, Math.min(8, value + (event.deltaY < 0 ? 1 : -1))));
+        }}
       >
         <rect width={width} height={height} fill="#dce9df" />
         {tiles.map((tile) => (
@@ -362,13 +393,13 @@ function JapanMap({
           />
         ))}
         {labelPoints.map(({ english, japanese, coord }) => {
-          const point = project(coord[0], coord[1], zoom);
+          const point = screenPoint(coord);
           return (
             <text
               className="map-place-label"
               key={english}
-              x={width / 2 + point[0] - centerPoint[0]}
-              y={height / 2 + point[1] - centerPoint[1]}
+              x={point[0]}
+              y={point[1]}
               textAnchor="middle"
             >
               {labelLanguage === "japanese" ? japanese : english}
@@ -376,9 +407,9 @@ function JapanMap({
           );
         })}
         {taggedPoints.map(({ english, japanese, coord, dayIndex, title }) => {
-          const point = project(coord[0], coord[1], zoom);
+          const point = screenPoint(coord);
           return (
-            <g key={`${english}-${dayIndex}-${title}`} transform={`translate(${width / 2 + point[0] - centerPoint[0]},${height / 2 + point[1] - centerPoint[1]})`}>
+            <g key={`${english}-${dayIndex}-${title}`} transform={`translate(${point[0]},${point[1]})`}>
               <circle className="instagram-map-pin" r="7" />
               <text className="instagram-map-label" y="-10" textAnchor="middle">
                 {labelLanguage === "japanese" ? japanese : english}
@@ -387,12 +418,12 @@ function JapanMap({
           );
         })}
         {points.map(({ day, index, coord }) => {
-          const point = project(coord[0], coord[1], zoom);
+          const point = screenPoint(coord);
           return (
             <g
               key={day.id ?? index}
               className="real-pin"
-              transform={`translate(${width / 2 + point[0] - centerPoint[0]},${height / 2 + point[1] - centerPoint[1]})`}
+              transform={`translate(${point[0]},${point[1]})`}
               onClick={() => onSelect(index)}
             >
               <circle r="13" />
@@ -427,7 +458,7 @@ function JapanMap({
         >
           −
         </button>
-        <button onClick={() => setZoom(5)} aria-label="Reset map zoom" title="Reset map zoom">
+        <button onClick={() => { setZoom(5); setPan({ x: 0, y: 0 }); }} aria-label="Reset map view" title="Reset map view">
           ⌂
         </button>
       </div>
@@ -1255,13 +1286,6 @@ export default function App() {
             <span>{accountUser ? "● Connected" : "○ Not connected"}</span>
             <small>Release {__RELEASE_STAMP__}</small>
           </span>
-          <button
-            className="ghost"
-            onClick={() => setModal("join")}
-            aria-label="Switch journey"
-          >
-            ⚙
-          </button>
           <button
             className="avatar owner"
             onClick={() => void openAccount()}

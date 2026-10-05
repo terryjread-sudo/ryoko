@@ -149,9 +149,15 @@
 }
 
 .real-map svg {
+  cursor: grab;
   display: block;
   height: 100%;
+  touch-action: none;
   width: 100%;
+}
+
+.real-map svg:active {
+  cursor: grabbing;
 }
 .google-map iframe {
   border: 0;
