@@ -1523,6 +1523,7 @@ export default function App() {
                               </span>
                             </>
                           </a>
+                          <div className="instagram-actions">
                           {instagramEmbedUrl(item.url) && (
                             <button
                               className="instagram-play"
@@ -1603,6 +1604,7 @@ export default function App() {
                           >
                             ×
                           </button>
+                          </div>
                         </article>
                       ))}
                     </div>
@@ -1708,6 +1710,7 @@ export default function App() {
                       {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
                       <span><b>{item.title}</b><small>by {item.author}</small>{!!item.places?.length && <span className="instagram-places">{item.places.map((place) => <em key={place}>#{place}</em>)}</span>}</span>
                     </a>
+                    <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
                       <button
                         className="instagram-play"
@@ -1727,6 +1730,7 @@ export default function App() {
                         showToast("Instagram inspiration removed");
                       } catch (e) { setError((e as Error).message); }
                     }}>×</button>
+                    </div>
                   </article>
                 ))}
               </div>
