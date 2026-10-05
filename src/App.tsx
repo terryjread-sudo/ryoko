@@ -1526,7 +1526,7 @@ export default function App() {
                           <div className="instagram-actions">
                           {instagramEmbedUrl(item.url) && (
                             <button
-                              className="instagram-play"
+                              className="instagram-action-button instagram-play"
                               title="Play preview in Ryōkō"
                               aria-label="Play preview in Ryōkō"
                               onClick={(e) => {
@@ -1538,7 +1538,7 @@ export default function App() {
                             </button>
                           )}
                           <button
-                            className="library-send"
+                            className="instagram-action-button library-send"
                             title="Move to journey library"
                             aria-label="Move to journey library"
                             onClick={(e) => {
@@ -1549,7 +1549,7 @@ export default function App() {
                             ↓
                           </button>
                           <button
-                            className="instagram-remove"
+                            className="instagram-action-button instagram-remove"
                             title="Remove Instagram inspiration"
                             onClick={async (e) => {
                               e.stopPropagation();
@@ -1713,7 +1713,7 @@ export default function App() {
                     <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
                       <button
-                        className="instagram-play"
+                        className="instagram-action-button instagram-play"
                         title="Play preview in Ryōkō"
                         aria-label="Play preview in Ryōkō"
                         onClick={() => setPlayingInstagram(item)}
@@ -1721,8 +1721,8 @@ export default function App() {
                         ▶
                       </button>
                     )}
-                    <button className="library-send" title="Send to a day" aria-label="Send to a day" onClick={() => setMoveLibraryItem(item)}>→</button>
-                    <button className="instagram-remove" title="Remove from journey library" aria-label="Remove from journey library" onClick={async () => {
+                    <button className="instagram-action-button library-send" title="Send to a day" aria-label="Send to a day" onClick={() => setMoveLibraryItem(item)}>→</button>
+                    <button className="instagram-action-button instagram-remove" title="Remove from journey library" aria-label="Remove from journey library" onClick={async () => {
                       if (!item.id || !session || !window.confirm("Remove this Instagram inspiration?")) return;
                       try {
                         await deleteJourneyInstagramItem(session, item.id);
