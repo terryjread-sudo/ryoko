@@ -6,7 +6,7 @@
   "background_color": "#fffaf7",
   "theme_color": "#fffaf7",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/ryoko-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ],
   "share_target": {
     "action": "/",
