@@ -73,6 +73,11 @@ type InstagramItem = {
   tags?: string[];
 };
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
 const instagramStandardTags = ["food", "tips", "activity", "travel"];
 
 const canonicalInstagramUrl = (value: string) => {
@@ -489,6 +494,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(0);
   const [totalMembers, setTotalMembers] = useState(0);
+  const [pwaCompatible, setPwaCompatible] = useState(false);
+  const [pwaInstalled, setPwaInstalled] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [pwaHelpOpen, setPwaHelpOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<
     Array<{ name?: string; color?: string; activeDay?: number | null }>
   >([]);
@@ -553,6 +562,42 @@ export default function App() {
   } | null>(null);
   const [instagramDragOver, setInstagramDragOver] = useState<number | null>(null);
   const [useInstagramLocation, setUseInstagramLocation] = useState(false);
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent;
+    const isIos = /iphone|ipad|ipod/i.test(userAgent);
+    const isAndroidChrome = /android/i.test(userAgent) && /chrome/i.test(userAgent);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches
+      || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    setPwaCompatible(isIos || isAndroidChrome);
+    setPwaInstalled(standalone);
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as BeforeInstallPromptEvent);
+    };
+    const handleAppInstalled = () => {
+      setPwaInstalled(true);
+      setInstallPromptEvent(null);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const installRyoko = async () => {
+    if (!installPromptEvent) {
+      setPwaHelpOpen(true);
+      return;
+    }
+    await installPromptEvent.prompt();
+    const choice = await installPromptEvent.userChoice;
+    if (choice.outcome === "accepted") setPwaInstalled(true);
+    setInstallPromptEvent(null);
+  };
   const [accountUser, setAccountUser] = useState<{
     email?: string;
     created_at?: string;
@@ -1315,6 +1360,15 @@ export default function App() {
           <span className="save">
             <span>{accountUser ? "● Connected" : "○ Not connected"}</span>
             <small>Release {__RELEASE_STAMP__}</small>
+            {pwaCompatible && (
+              <button
+                className="pwa-action"
+                type="button"
+                onClick={() => pwaInstalled ? setPwaHelpOpen(true) : void installRyoko()}
+              >
+                {pwaInstalled ? "How to share Instagram videos" : "Install Ryōkō"}
+              </button>
+            )}
           </span>
           <button
             className="avatar owner"
@@ -2605,6 +2659,28 @@ export default function App() {
                   ? "Save to journey library ✦"
                   : "Save to this day ✦"}
             </button>
+          </div>
+        </div>
+      )}
+      {pwaHelpOpen && (
+        <div className="backdrop" onClick={() => setPwaHelpOpen(false)}>
+          <div className="modal pwa-help-modal" onClick={(event) => event.stopPropagation()}>
+            <button className="close" onClick={() => setPwaHelpOpen(false)} aria-label="Close sharing help">×</button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">SHARE INSTAGRAM INSPIRATION</p>
+            <h2>Send a video to <em>Ryōkō.</em></h2>
+            <p className="modal-copy">
+              Found a Reel or post you want to remember? You can send it straight into your journey while you are browsing Instagram.
+            </p>
+            <ol className="pwa-help-steps">
+              <li>Open the Instagram video you like.</li>
+              <li>Tap <b>Share</b>, then choose <b>Ryōkō</b>.</li>
+              <li>Ryōkō opens with the link ready to preview and tag.</li>
+              <li>Choose the places and tags, then save it to your library or a day.</li>
+            </ol>
+            <p className="pwa-help-note">
+              If you cannot see Ryōkō in the Share list, use your browser menu and choose <b>Add to Home Screen</b> first.
+            </p>
           </div>
         </div>
       )}

@@ -1240,6 +1240,47 @@
   line-height: 1.2;
   text-align: right;
 }
+.pwa-action {
+  background: transparent;
+  border: 0;
+  color: #735fa6;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  margin-top: 3px;
+  padding: 0;
+  text-align: right;
+}
+.pwa-action:hover,
+.pwa-action:focus-visible {
+  color: #b55762;
+  text-decoration: underline;
+}
+.pwa-help-modal {
+  max-width: 430px;
+}
+.pwa-help-steps {
+  color: #665b69;
+  display: grid;
+  font-size: 13px;
+  gap: 12px;
+  line-height: 1.45;
+  margin: 18px 0;
+  padding-left: 22px;
+}
+.pwa-help-steps b,
+.pwa-help-note b {
+  color: #735fa6;
+}
+.pwa-help-note {
+  background: #fff0ea;
+  border-radius: 8px;
+  color: #806f6a;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 10px 12px;
+}
 .empty-hint {
   color: #a29a9d;
   display: block;
