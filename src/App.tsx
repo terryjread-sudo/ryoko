@@ -968,10 +968,26 @@ export default function App() {
       setError("Choose a date within your journey range.");
       return;
     }
+    const currentDay = days[index];
+    const nextDate = field === "date" ? value : currentDay.date;
+    const nextCity = field === "city" ? value.trim() : currentDay.city.trim();
+    const normalizedCity = nextCity.toLocaleLowerCase();
+    if (
+      normalizedCity &&
+      days.some(
+        (day, dayIndex) =>
+          dayIndex !== index &&
+          day.date === nextDate &&
+          day.city.trim().toLocaleLowerCase() === normalizedCity,
+      )
+    ) {
+      setError(`${nextCity} already has a day on ${nextDate}. Choose a different date or location.`);
+      return;
+    }
     const updatedDay = {
-      ...days[index],
+      ...currentDay,
       [field]: value,
-      emoji: field === "city" ? (emojis[value] ?? "✦") : days[index].emoji,
+      emoji: field === "city" ? (emojis[value] ?? "✦") : currentDay.emoji,
     };
     const updatedDays = days.map((day, i) => (i === index ? updatedDay : day));
     if (field === "date") {
