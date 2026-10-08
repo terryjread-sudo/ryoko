@@ -77,6 +77,12 @@ type InstagramItem = {
   tags?: string[];
 };
 
+const sortDaysByDate = (items: Day[]) =>
+  items
+    .map((day, originalIndex) => ({ day, originalIndex }))
+    .sort((a, b) => a.day.date.localeCompare(b.day.date) || a.originalIndex - b.originalIndex)
+    .map(({ day }) => day);
+
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -898,7 +904,7 @@ export default function App() {
             },
           ),
         );
-        setDays(loaded);
+        setDays(sortDaysByDate(loaded));
         setInstagramLibrary(libraryRows.map(parseInstagramItem));
       })
       .catch((e) => setError(e.message))
@@ -947,17 +953,23 @@ export default function App() {
       setError("Choose a date within your journey range.");
       return;
     }
-    setDays((current) =>
-      current.map((day, i) =>
-        i === index
-          ? {
-              ...day,
-              [field]: value,
-              emoji: field === "city" ? (emojis[value] ?? "✦") : day.emoji,
-            }
-          : day,
-      ),
-    );
+    const updatedDay = {
+      ...days[index],
+      [field]: value,
+      emoji: field === "city" ? (emojis[value] ?? "✦") : days[index].emoji,
+    };
+    const updatedDays = days.map((day, i) => (i === index ? updatedDay : day));
+    if (field === "date") {
+      const sorted = sortDaysByDate(updatedDays);
+      const activeDayId = days[active]?.id;
+      if (activeDayId) {
+        const nextActive = sorted.findIndex((day) => day.id === activeDayId);
+        if (nextActive >= 0) setActive(nextActive);
+      }
+      setDays(sorted);
+    } else {
+      setDays(updatedDays);
+    }
     const next = { ...days[index], [field]: value };
     if (session && next.id)
       void saveDay(session, {
