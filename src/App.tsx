@@ -1452,7 +1452,7 @@ export default function App() {
           <h1>
             {session ? (
               <>
-                Your <em>Japan</em> story <span>✦</span>
+                Your Ja<em>plan</em> <span>✦</span>
               </>
             ) : (
               <>
