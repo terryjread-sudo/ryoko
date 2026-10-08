@@ -694,10 +694,25 @@ export default function App() {
   const voteOnInstagram = async (item: InstagramItem, vote: InstagramVote) => {
     if (!session) return;
     const canonicalUrl = canonicalInstagramUrl(item.url);
+    const previous = instagramVotes[canonicalUrl];
+    const optimistic: InstagramVoteSummary = {
+      canonical_url: canonicalUrl,
+      upvotes: (previous?.upvotes ?? 0) - (previous?.my_vote === 1 ? 1 : 0) + (vote === 1 ? 1 : 0),
+      middle_votes: (previous?.middle_votes ?? 0) - (previous?.my_vote === 0 ? 1 : 0) + (vote === 0 ? 1 : 0),
+      downvotes: (previous?.downvotes ?? 0) - (previous?.my_vote === -1 ? 1 : 0) + (vote === -1 ? 1 : 0),
+      my_vote: vote,
+    };
+    setInstagramVotes((current) => ({ ...current, [canonicalUrl]: optimistic }));
     try {
       const summary = await setInstagramVote(session, canonicalUrl, vote);
       if (summary) setInstagramVotes((current) => ({ ...current, [canonicalUrl]: summary }));
     } catch (error) {
+      setInstagramVotes((current) => {
+        const next = { ...current };
+        if (previous) next[canonicalUrl] = previous;
+        else delete next[canonicalUrl];
+        return next;
+      });
       setError((error as Error).message);
     }
   };

@@ -213,7 +213,10 @@ export async function listInstagramVotes(session: RyokoSession) {
     p_code: session.code || null,
   });
   if (error) throw error;
-  return (data ?? []) as InstagramVoteSummary[];
+  return (data ?? []).map((row: InstagramVoteSummary & { vote_url?: string }) => ({
+    ...row,
+    canonical_url: row.canonical_url ?? row.vote_url ?? "",
+  })) as InstagramVoteSummary[];
 }
 
 export async function setInstagramVote(
@@ -229,7 +232,10 @@ export async function setInstagramVote(
     p_vote: vote,
   });
   if (error) throw error;
-  return ((data ?? [])[0] ?? null) as InstagramVoteSummary | null;
+  const row = (data ?? [])[0] as (InstagramVoteSummary & { vote_url?: string }) | undefined;
+  return row
+    ? { ...row, canonical_url: row.canonical_url ?? row.vote_url ?? "" } as InstagramVoteSummary
+    : null;
 }
 
 export async function saveJourneyInstagramItem(

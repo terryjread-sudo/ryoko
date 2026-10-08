@@ -44,7 +44,7 @@ end;
 $$;
 
 create or replace function public.ryoko_list_instagram_votes(p_trip uuid, p_code text default null)
-returns table(canonical_url text, upvotes integer, middle_votes integer, downvotes integer, my_vote smallint)
+returns table(vote_url text, upvotes integer, middle_votes integer, downvotes integer, my_vote smallint)
 language plpgsql
 security definer
 set search_path = public, extensions
@@ -70,7 +70,7 @@ create or replace function public.ryoko_set_instagram_vote(
   p_canonical_url text,
   p_vote smallint
 )
-returns table(canonical_url text, upvotes integer, middle_votes integer, downvotes integer, my_vote smallint)
+returns table(vote_url text, upvotes integer, middle_votes integer, downvotes integer, my_vote smallint)
 language plpgsql
 security definer
 set search_path = public, extensions
@@ -84,9 +84,9 @@ begin
   on conflict (trip_id, canonical_url, member_id)
   do update set vote = excluded.vote, updated_at = now();
   return query
-    select v.canonical_url, v.upvotes, v.middle_votes, v.downvotes, v.my_vote
+    select v.vote_url, v.upvotes, v.middle_votes, v.downvotes, v.my_vote
     from public.ryoko_list_instagram_votes(p_trip, p_code) v
-    where v.canonical_url = p_canonical_url;
+    where v.vote_url = p_canonical_url;
 end;
 $$;
 
