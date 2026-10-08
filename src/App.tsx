@@ -1734,7 +1734,16 @@ export default function App() {
                   )}
                   {!!day.instagramItems.length && (
                     <div className="instagram-items">
-                      {day.instagramItems.map((item) => (
+                      {[...day.instagramItems]
+                        .map((item, originalIndex) => ({
+                          item,
+                          originalIndex,
+                          score: (instagramVotes[canonicalInstagramUrl(item.url)]?.upvotes ?? 0)
+                            - (instagramVotes[canonicalInstagramUrl(item.url)]?.downvotes ?? 0),
+                          upvotes: instagramVotes[canonicalInstagramUrl(item.url)]?.upvotes ?? 0,
+                        }))
+                        .sort((a, b) => b.score - a.score || b.upvotes - a.upvotes || a.originalIndex - b.originalIndex)
+                        .map(({ item }) => (
                         <article
                           className={`instagram-item ${instagramDragOver === index ? "instagram-drop-target" : ""}`}
                           key={item.id ?? item.url}
@@ -1889,7 +1898,7 @@ export default function App() {
                           </button>
                           </div>
                         </article>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </div>
