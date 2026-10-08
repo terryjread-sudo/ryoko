@@ -16,6 +16,14 @@ export type AuditEvent = {
   payload: Record<string, unknown>;
   created_at: string;
 };
+export type InstagramVote = -1 | 0 | 1;
+export type InstagramVoteSummary = {
+  canonical_url: string;
+  upvotes: number;
+  middle_votes: number;
+  downvotes: number;
+  my_vote: InstagramVote | null;
+};
 
 export async function createTrip(
   name: string,
@@ -196,6 +204,32 @@ export async function listJourneyInstagramItems(session: RyokoSession) {
       });
   if (error) throw error;
   return (data ?? []) as Array<{ id: string; content: string }>;
+}
+
+export async function listInstagramVotes(session: RyokoSession) {
+  if (!supabase) return [] as InstagramVoteSummary[];
+  const { data, error } = await supabase.rpc("ryoko_list_instagram_votes", {
+    p_trip: session.tripId,
+    p_code: session.code || null,
+  });
+  if (error) throw error;
+  return (data ?? []) as InstagramVoteSummary[];
+}
+
+export async function setInstagramVote(
+  session: RyokoSession,
+  canonicalUrl: string,
+  vote: InstagramVote,
+) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("ryoko_set_instagram_vote", {
+    p_trip: session.tripId,
+    p_code: session.code || null,
+    p_canonical_url: canonicalUrl,
+    p_vote: vote,
+  });
+  if (error) throw error;
+  return ((data ?? [])[0] ?? null) as InstagramVoteSummary | null;
 }
 
 export async function saveJourneyInstagramItem(

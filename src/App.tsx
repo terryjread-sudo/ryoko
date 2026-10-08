@@ -12,17 +12,21 @@ import {
   listInstagramItems,
   listTripMemberCount,
   listJourneyInstagramItems,
+  listInstagramVotes,
   listAuditEvents,
   moveItem,
   moveJourneyInstagramToDay,
   deleteJourneyInstagramItem,
   saveJourneyInstagramItem,
+  setInstagramVote,
   recordAuditEvent,
   saveDay,
   saveItem,
   subscribeToTripPresence,
   type AuditEvent,
   type RyokoSession,
+  type InstagramVote,
+  type InstagramVoteSummary,
 } from "./lib/ryoko";
 import { resolveInstagramUrl, type InstagramPreview } from "./lib/instagram";
 import { supabase } from "./lib/supabase";
@@ -157,6 +161,39 @@ function InstagramMetadata({
       </button>
     );
   });
+}
+
+function InstagramVoteControls({
+  summary,
+  onVote,
+}: {
+  summary?: InstagramVoteSummary;
+  onVote: (vote: InstagramVote) => void;
+}) {
+  const options: Array<{ value: InstagramVote; label: string; icon: string; count: number }> = [
+    { value: 1, label: "Upvote", icon: "↑", count: summary?.upvotes ?? 0 },
+    { value: 0, label: "Middle", icon: "•", count: summary?.middle_votes ?? 0 },
+    { value: -1, label: "Downvote", icon: "↓", count: summary?.downvotes ?? 0 },
+  ];
+  return (
+    <div className="instagram-votes" aria-label="Vote on this Instagram video">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          className={summary?.my_vote === option.value ? "selected" : ""}
+          type="button"
+          aria-label={`${option.label}: ${option.count}`}
+          aria-pressed={summary?.my_vote === option.value}
+          onClick={(event) => {
+            event.stopPropagation();
+            onVote(option.value);
+          }}
+        >
+          <span>{option.icon}</span>{option.count}
+        </button>
+      ))}
+    </div>
+  );
 }
 const destinations = [
   "Tokyo",
@@ -541,6 +578,7 @@ export default function App() {
   const [instagramDay, setInstagramDay] = useState<number | null>(null);
   const [instagramLibraryMode, setInstagramLibraryMode] = useState(false);
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
+  const [instagramVotes, setInstagramVotes] = useState<Record<string, InstagramVoteSummary>>({});
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
   const [expandedInstagramCaptions, setExpandedInstagramCaptions] = useState<Set<string>>(new Set());
@@ -645,6 +683,17 @@ export default function App() {
       else next.add(key);
       return next;
     });
+  };
+
+  const voteOnInstagram = async (item: InstagramItem, vote: InstagramVote) => {
+    if (!session) return;
+    const canonicalUrl = canonicalInstagramUrl(item.url);
+    try {
+      const summary = await setInstagramVote(session, canonicalUrl, vote);
+      if (summary) setInstagramVotes((current) => ({ ...current, [canonicalUrl]: summary }));
+    } catch (error) {
+      setError((error as Error).message);
+    }
   };
 
   const showToast = (message: string, undo?: () => void) => {
@@ -822,6 +871,9 @@ export default function App() {
     setTotalMembers(1);
     void listTripMemberCount(session).then(setTotalMembers).catch(() => undefined);
     setLoading(true);
+    void listInstagramVotes(session)
+      .then((rows) => setInstagramVotes(Object.fromEntries(rows.map((row) => [row.canonical_url, row]))))
+      .catch(() => undefined);
     void listDays(session)
       .then(async (rows) => {
         const libraryRows = await listJourneyInstagramItems(session);
@@ -1712,6 +1764,10 @@ export default function App() {
                               {item.tags?.map((tag) => <em key={`tag-${tag}`}>#{tag}</em>)}
                             </div>
                           )}
+                          <InstagramVoteControls
+                            summary={instagramVotes[canonicalInstagramUrl(item.url)]}
+                            onVote={(vote) => void voteOnInstagram(item, vote)}
+                          />
                           <div className="instagram-actions">
                           {instagramEmbedUrl(item.url) && (
                             <button
@@ -1920,6 +1976,10 @@ export default function App() {
                         {item.tags?.map((tag) => <em key={`tag-${tag}`}>#{tag}</em>)}
                       </div>
                     )}
+                    <InstagramVoteControls
+                      summary={instagramVotes[canonicalInstagramUrl(item.url)]}
+                      onVote={(vote) => void voteOnInstagram(item, vote)}
+                    />
                     <div className="instagram-actions">
                     {instagramEmbedUrl(item.url) && (
                       <button
@@ -2686,12 +2746,12 @@ export default function App() {
       )}
       {moveLibraryItem && (
         <div className="backdrop" onClick={() => setMoveLibraryItem(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal move-day-modal" onClick={(e) => e.stopPropagation()}>
             <button className="close" onClick={() => setMoveLibraryItem(null)}>×</button>
             <span className="flower">✿</span>
             <p className="eyebrow">SEND TO DAY</p>
             <h2>Choose a <em>date.</em></h2>
-            <p className="modal-copy">Move “{moveLibraryItem.title}” from the journey library into your itinerary.</p>
+            <p className="move-day-summary" title={moveLibraryItem.title}>Move “{moveLibraryItem.title}” from the journey library into your itinerary.</p>
             <div className="journey-options">
               {days.map((day, index) => (
                 <button className="journey-option" key={day.id ?? day.date} onClick={() => void sendLibraryItemToDay(index)}>

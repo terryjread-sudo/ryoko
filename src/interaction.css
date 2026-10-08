@@ -517,6 +517,65 @@
   padding: 3px 7px;
 }
 
+.instagram-votes {
+  align-items: center;
+  background: #fffaf7;
+  border-top: 1px solid #ead9d1;
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  position: relative;
+  z-index: 2;
+}
+
+.instagram-votes button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #eadfd7;
+  border-radius: 999px;
+  color: #8f7e87;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 10px;
+  gap: 3px;
+  justify-content: center;
+  min-width: 32px;
+  padding: 3px 7px;
+}
+
+.instagram-votes button span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.instagram-votes button:hover,
+.instagram-votes button.selected {
+  background: #eee5f7;
+  border-color: #b9a9d5;
+  color: #735fa6;
+}
+
+.move-day-modal {
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+}
+
+.move-day-summary {
+  color: #806f6a;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 12px 0 0;
+  overflow: hidden;
+}
+
+.move-day-modal .journey-options {
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .instagram-item img,
 .instagram-item-placeholder {
   background: #f0d7d2;
