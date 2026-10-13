@@ -2816,7 +2816,7 @@ export default function App() {
               <img className="instagram-delete-preview" src={confirmInstagramDelete.thumbnailUrl} alt="" />
             )}
             <h2 id="instagram-delete-title">Remove this <em>video?</em></h2>
-            <p className="modal-copy">“{confirmInstagramDelete.title}” will be removed from your journey library. You can add it again later.</p>
+            <p className="modal-copy">This video will be removed from your journey library. You can add it again later.</p>
             <div className="instagram-delete-actions">
               <button className="secondary" type="button" onClick={() => setConfirmInstagramDelete(null)}>Cancel</button>
               <button className="primary" type="button" onClick={() => void deleteConfirmedInstagramLibraryItem()}>Remove video</button>
