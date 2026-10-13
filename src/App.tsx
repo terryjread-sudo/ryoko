@@ -2812,6 +2812,9 @@ export default function App() {
             <button className="close" onClick={() => setConfirmInstagramDelete(null)} aria-label="Cancel removing Instagram inspiration">×</button>
             <span className="flower">✿</span>
             <p className="eyebrow">REMOVE FROM LIBRARY</p>
+            {confirmInstagramDelete.thumbnailUrl && (
+              <img className="instagram-delete-preview" src={confirmInstagramDelete.thumbnailUrl} alt="" />
+            )}
             <h2 id="instagram-delete-title">Remove this <em>video?</em></h2>
             <p className="modal-copy">“{confirmInstagramDelete.title}” will be removed from your journey library. You can add it again later.</p>
             <div className="instagram-delete-actions">

@@ -564,6 +564,16 @@
   max-width: 420px;
 }
 
+.instagram-delete-preview {
+  border: 1px solid #ead9d1;
+  border-radius: 8px;
+  display: block;
+  height: 72px;
+  margin: 8px auto 14px;
+  object-fit: cover;
+  width: 96px;
+}
+
 .instagram-delete-actions {
   display: flex;
   gap: 10px;
