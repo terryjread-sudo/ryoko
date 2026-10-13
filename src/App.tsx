@@ -181,6 +181,50 @@ function InstagramMetadata({
   });
 }
 
+function InstagramThumbnail({
+  url,
+  thumbnailUrl,
+  alt,
+  className,
+  placeholderClassName,
+}: {
+  url: string;
+  thumbnailUrl?: string;
+  alt: string;
+  className?: string;
+  placeholderClassName: string;
+}) {
+  const [source, setSource] = useState(thumbnailUrl);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshed = useRef(false);
+
+  const refreshThumbnail = async () => {
+    if (refreshing || refreshed.current) return;
+    refreshed.current = true;
+    setRefreshing(true);
+    setSource(undefined);
+    try {
+      const preview = await resolveInstagramUrl(url);
+      setSource(preview.thumbnailUrl);
+    } catch {
+      setSource(undefined);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return source ? (
+    <img
+      className={className}
+      src={source}
+      alt={alt}
+      onError={() => void refreshThumbnail()}
+    />
+  ) : (
+    <span className={placeholderClassName}>◎</span>
+  );
+}
+
 function InstagramVoteControls({
   summary,
   onVote,
@@ -1825,13 +1869,12 @@ export default function App() {
                             onClick={(event) => toggleInstagramCardDetails(item, event)}
                           >
                             <>
-                              {item.thumbnailUrl ? (
-                                <img src={item.thumbnailUrl} alt="" />
-                              ) : (
-                                <span className="instagram-item-placeholder">
-                                  ◎
-                                </span>
-                              )}
+                              <InstagramThumbnail
+                                url={item.url}
+                                thumbnailUrl={item.thumbnailUrl}
+                                alt=""
+                                placeholderClassName="instagram-item-placeholder"
+                              />
                               <span>
                                 <b className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-card-title expanded" : "instagram-card-title"}>{item.title}</b>
                                 <small>by {item.author}</small>
@@ -2063,7 +2106,12 @@ export default function App() {
                       className={`instagram-card-content ${revealedInstagramCards.has(item.id ?? item.url) ? "details-revealed" : "details-hidden"}`}
                       onClick={(event) => toggleInstagramCardDetails(item, event)}
                     >
-                      {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <span className="instagram-item-placeholder">◎</span>}
+                      <InstagramThumbnail
+                        url={item.url}
+                        thumbnailUrl={item.thumbnailUrl}
+                        alt=""
+                        placeholderClassName="instagram-item-placeholder"
+                      />
                       <span><b className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-card-title expanded" : "instagram-card-title"}>{item.title}</b><small>by {item.author}</small>{item.description && <><p className={expandedInstagramCaptions.has(item.id ?? item.url) ? "instagram-caption expanded" : "instagram-caption"}>{item.description}</p><button className="caption-toggle" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleInstagramCaption(item); }}>{expandedInstagramCaptions.has(item.id ?? item.url) ? "Show Less" : "Show More"}</button></>}</span>
                     </div>
                     {!!(item.places?.length || item.tags?.length) && (
@@ -2744,14 +2792,12 @@ export default function App() {
             )}
             {instagramPreview && (
               <div className="instagram-preview">
-                {instagramPreview.thumbnailUrl ? (
-                  <img
-                    src={instagramPreview.thumbnailUrl}
-                    alt="Instagram preview"
-                  />
-                ) : (
-                  <div className="preview-placeholder">◎</div>
-                )}
+                <InstagramThumbnail
+                  url={instagramPreview.url}
+                  thumbnailUrl={instagramPreview.thumbnailUrl}
+                  alt="Instagram preview"
+                  placeholderClassName="preview-placeholder"
+                />
                 <div className="instagram-preview-metadata">
                   <b>
                     <InstagramMetadata
@@ -2861,9 +2907,13 @@ export default function App() {
             <button className="close" onClick={() => setConfirmInstagramDelete(null)} aria-label="Cancel removing Instagram inspiration">×</button>
             <span className="flower">✿</span>
             <p className="eyebrow">REMOVE FROM LIBRARY</p>
-            {confirmInstagramDelete.thumbnailUrl && (
-              <img className="instagram-delete-preview" src={confirmInstagramDelete.thumbnailUrl} alt="" />
-            )}
+            <InstagramThumbnail
+              url={confirmInstagramDelete.url}
+              thumbnailUrl={confirmInstagramDelete.thumbnailUrl}
+              alt=""
+              className="instagram-delete-preview"
+              placeholderClassName="instagram-delete-preview instagram-delete-preview-placeholder"
+            />
             <h2 id="instagram-delete-title">Remove this <em>video?</em></h2>
             <p className="modal-copy">This video will be removed from your journey library. You can add it again later.</p>
             <div className="instagram-delete-actions">
