@@ -585,6 +585,7 @@ export default function App() {
   const [instagramLibraryMode, setInstagramLibraryMode] = useState(false);
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
   const [instagramVotes, setInstagramVotes] = useState<Record<string, InstagramVoteSummary>>({});
+  const [confirmInstagramDelete, setConfirmInstagramDelete] = useState<InstagramItem | null>(null);
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
   const [expandedInstagramCaptions, setExpandedInstagramCaptions] = useState<Set<string>>(new Set());
@@ -1198,6 +1199,22 @@ export default function App() {
       showToast("Instagram inspiration sent to the selected day");
     } catch (e) {
       setError((e as Error).message);
+    }
+  };
+  const deleteConfirmedInstagramLibraryItem = async () => {
+    const item = confirmInstagramDelete;
+    if (!session || !item?.id) {
+      setConfirmInstagramDelete(null);
+      return;
+    }
+    try {
+      await deleteJourneyInstagramItem(session, item.id);
+      setInstagramLibrary((current) => current.filter((entry) => entry.id !== item.id));
+      showToast("Instagram inspiration removed");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setConfirmInstagramDelete(null);
     }
   };
   const moveDayItemToLibrary = async (dayIndex: number, item: InstagramItem) => {
@@ -2044,14 +2061,7 @@ export default function App() {
                       </button>
                     )}
                     <button className="instagram-action-button library-send" title="Send to a day" aria-label="Send to a day" onClick={() => setMoveLibraryItem(item)}>→</button>
-                    <button className="instagram-action-button instagram-remove" title="Remove from journey library" aria-label="Remove from journey library" onClick={async () => {
-                      if (!item.id || !session || !window.confirm("Remove this Instagram inspiration?")) return;
-                      try {
-                        await deleteJourneyInstagramItem(session, item.id);
-                        setInstagramLibrary((current) => current.filter((entry) => entry.id !== item.id));
-                        showToast("Instagram inspiration removed");
-                      } catch (e) { setError((e as Error).message); }
-                    }}>×</button>
+                    <button className="instagram-action-button instagram-remove" title="Remove from journey library" aria-label="Remove from journey library" onClick={() => setConfirmInstagramDelete(item)}>×</button>
                     <button className="instagram-action-button instagram-edit" title="Preview again and edit tags" aria-label="Preview again and edit tags" onClick={() => void editInstagram(item)}>✎</button>
                     </div>
                   </article>
@@ -2793,6 +2803,21 @@ export default function App() {
             <p className="pwa-help-note">
               If you cannot see Ryōkō in the Share list, use your browser menu and choose <b>Add to Home Screen</b> first.
             </p>
+          </div>
+        </div>
+      )}
+      {confirmInstagramDelete && (
+        <div className="backdrop" onClick={() => setConfirmInstagramDelete(null)}>
+          <div className="modal instagram-delete-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="instagram-delete-title">
+            <button className="close" onClick={() => setConfirmInstagramDelete(null)} aria-label="Cancel removing Instagram inspiration">×</button>
+            <span className="flower">✿</span>
+            <p className="eyebrow">REMOVE FROM LIBRARY</p>
+            <h2 id="instagram-delete-title">Remove this <em>video?</em></h2>
+            <p className="modal-copy">“{confirmInstagramDelete.title}” will be removed from your journey library. You can add it again later.</p>
+            <div className="instagram-delete-actions">
+              <button className="secondary" type="button" onClick={() => setConfirmInstagramDelete(null)}>Cancel</button>
+              <button className="primary" type="button" onClick={() => void deleteConfirmedInstagramLibraryItem()}>Remove video</button>
+            </div>
           </div>
         </div>
       )}

@@ -560,6 +560,21 @@
   overflow: hidden;
 }
 
+.instagram-delete-modal {
+  max-width: 420px;
+}
+
+.instagram-delete-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.instagram-delete-actions button {
+  flex: 1;
+}
+
 .move-day-summary {
   color: #806f6a;
   display: -webkit-box;
