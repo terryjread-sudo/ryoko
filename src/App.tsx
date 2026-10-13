@@ -89,6 +89,18 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 const instagramStandardTags = ["food", "tips", "activity", "travel"];
+const instagramAutoTagKeywords: Record<string, string[]> = {
+  shopping: ["shopping", "mall", "outlet", "買い物", "ショッピング"],
+  temple: ["temple", "寺", "お寺"],
+  shrine: ["shrine", "神社"],
+  onsen: ["onsen", "hot spring", "温泉"],
+  nature: ["nature", "mountain", "waterfall", "自然"],
+  beach: ["beach", "coast", "island", "ビーチ", "海"],
+  culture: ["culture", "traditional", "festival", "文化", "祭り"],
+  history: ["history", "castle", "historic", "歴史", "城"],
+  nightlife: ["nightlife", "bar", "club", "夜遊び"],
+  transport: ["train", "railway", "subway", "shinkansen", "電車", "新幹線"],
+};
 
 const canonicalInstagramUrl = (value: string) => {
   try {
@@ -1104,6 +1116,21 @@ export default function App() {
     return japanPlaces.filter((place) =>
       placeSearchTerms(place).some((term) => metadata.includes(term.toLocaleLowerCase())),
     );
+  }, [instagramPreview]);
+  const instagramDetectedTags = useMemo(() => {
+    if (!instagramPreview) return [];
+    const metadata = [
+      instagramPreview.title,
+      instagramPreview.author,
+      instagramPreview.description,
+      instagramPreview.location,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase();
+    return Object.entries(instagramAutoTagKeywords)
+      .filter(([, keywords]) => keywords.some((keyword) => metadata.includes(keyword.toLocaleLowerCase())))
+      .map(([tag]) => tag);
   }, [instagramPreview]);
   const saveInstagram = async () => {
     const index = instagramDay;
@@ -2683,6 +2710,28 @@ export default function App() {
                     );
                   })}
                 </div>
+                {(instagramDetectedTags.length || instagramTags.some((tag) => tag in instagramAutoTagKeywords)) ? (
+                  <>
+                    <small className="standard-tag-label">Suggested tags</small>
+                    <div className="tag-suggestion-grid">
+                      {[...new Set([...instagramDetectedTags, ...instagramTags.filter((tag) => tag in instagramAutoTagKeywords)])].map((tag) => {
+                        const selected = instagramTags.includes(tag);
+                        return (
+                          <button
+                            type="button"
+                            className={selected ? "tag-suggestion selected" : "tag-suggestion"}
+                            key={tag}
+                            onClick={() => toggleInstagramTag(tag)}
+                            aria-pressed={selected}
+                          >
+                            <span>#{tag}</span>
+                            {selected && <strong aria-label="Selected">✓</strong>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : null}
               </div>
             ) : (
               <button
