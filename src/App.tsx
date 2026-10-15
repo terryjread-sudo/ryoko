@@ -83,6 +83,17 @@ const sortDaysByDate = (items: Day[]) =>
     .sort((a, b) => a.day.date.localeCompare(b.day.date) || a.originalIndex - b.originalIndex)
     .map(({ day }) => day);
 
+const journeyDatesBetween = (start: string, end: string) => {
+  const dates: string[] = [];
+  const current = new Date(`${start}T00:00:00Z`);
+  const final = new Date(`${end}T00:00:00Z`);
+  while (current <= final) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+};
+
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -1449,12 +1460,17 @@ export default function App() {
     try {
       const ownerName = accountUser ? accountDisplayName : name;
       const created = await createTrip(tripName, from, to, ownerName);
+      const journeyDates = journeyDatesBetween(from, to);
       const createdDays = await Promise.all(
-        chosen.map(async (city) => {
-          const saved = await saveDay(created, { date: from, city, title: "" });
+        journeyDates.map(async (date, index) => {
+          const city = chosen[Math.min(
+            chosen.length - 1,
+            Math.floor((index * chosen.length) / journeyDates.length),
+          )] ?? "";
+          const saved = await saveDay(created, { date, city, title: "" });
           return {
             id: saved?.id,
-            date: from,
+            date,
             city,
             emoji: emojis[city],
             title: "",
