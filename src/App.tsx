@@ -101,6 +101,9 @@ type BeforeInstallPromptEvent = Event & {
 
 const instagramStandardTags = ["food", "tips", "activity", "travel"];
 const instagramAutoTagKeywords: Record<string, string[]> = {
+  food: ["food", "restaurant", "cafe", "coffee", "ramen", "sushi", "izakaya", "料理", "食べ物", "カフェ", "寿司", "ラーメン"],
+  tips: ["tip", "tips", "guide", "recommendation", "おすすめ", "ガイド"],
+  activity: ["activity", "experience", "hiking", "museum", "体験", "アクティビティ"],
   shopping: ["shopping", "mall", "outlet", "買い物", "ショッピング"],
   temple: ["temple", "寺", "お寺"],
   shrine: ["shrine", "神社"],
@@ -111,6 +114,31 @@ const instagramAutoTagKeywords: Record<string, string[]> = {
   history: ["history", "castle", "historic", "歴史", "城"],
   nightlife: ["nightlife", "bar", "club", "夜遊び"],
   transport: ["train", "railway", "subway", "shinkansen", "電車", "新幹線"],
+};
+
+const instagramMetadataText = (preview: InstagramPreview) =>
+  [
+    preview.title,
+    preview.author,
+    preview.description,
+    preview.location,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase();
+
+const detectInstagramPlaces = (preview: InstagramPreview) => {
+  const metadata = instagramMetadataText(preview);
+  return japanPlaces.filter((place) =>
+    placeSearchTerms(place).some((term) => metadata.includes(term.toLocaleLowerCase())),
+  );
+};
+
+const detectInstagramTags = (preview: InstagramPreview) => {
+  const metadata = instagramMetadataText(preview);
+  return Object.entries(instagramAutoTagKeywords)
+    .filter(([, keywords]) => keywords.some((keyword) => metadata.includes(keyword.toLocaleLowerCase())))
+    .map(([tag]) => tag);
 };
 
 const canonicalInstagramUrl = (value: string) => {
@@ -662,6 +690,9 @@ export default function App() {
     dayIndex: number | null;
   } | null>(null);
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [bulkInstagramMode, setBulkInstagramMode] = useState(false);
+  const [bulkInstagramUrls, setBulkInstagramUrls] = useState("");
+  const [bulkInstagramLoading, setBulkInstagramLoading] = useState(false);
   const [instagramPreview, setInstagramPreview] =
     useState<InstagramPreview | null>(null);
   const [instagramLoading, setInstagramLoading] = useState(false);
@@ -1090,6 +1121,9 @@ export default function App() {
   const resetInstagramComposer = () => {
     setEditingInstagram(null);
     setInstagramUrl("");
+    setBulkInstagramMode(false);
+    setBulkInstagramUrls("");
+    setBulkInstagramLoading(false);
     setInstagramPreview(null);
     setInstagramError("");
     setInstagramPlaces([]);
@@ -1143,6 +1177,113 @@ export default function App() {
       setInstagramLoading(false);
     }
   };
+  const saveBulkInstagram = async () => {
+    if (!session || bulkInstagramLoading) return;
+    const urls = bulkInstagramUrls
+      .split(/[\s,]+/)
+      .map((value) => value.replace(/[.;!?)\]}]+$/, ""))
+      .filter(Boolean);
+    if (!urls.length) {
+      setInstagramError("Paste one or more Instagram post or Reel URLs.");
+      return;
+    }
+    const validUrls: string[] = [];
+    const invalidUrls: string[] = [];
+    for (const url of urls) {
+      if (/^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[^/]+/i.test(url)) {
+        validUrls.push(url);
+      } else {
+        invalidUrls.push(url);
+      }
+    }
+    const uniqueUrls = [...new Map(
+      validUrls.map((url) => [canonicalInstagramUrl(url), url]),
+    ).values()];
+    const existingUrls = new Set(
+      [...instagramLibrary, ...days.flatMap((day) => day.instagramItems)]
+        .map((item) => canonicalInstagramUrl(item.url)),
+    );
+    const duplicateCount = validUrls.length - uniqueUrls.length
+      + uniqueUrls.filter((url) => existingUrls.has(canonicalInstagramUrl(url))).length;
+    const urlsToSave = uniqueUrls.filter(
+      (url) => !existingUrls.has(canonicalInstagramUrl(url)),
+    );
+    if (!urlsToSave.length) {
+      setInstagramError(
+        `No new videos to add. ${duplicateCount} duplicate${duplicateCount === 1 ? " was" : "s were"} skipped.${invalidUrls.length ? ` Invalid links: ${invalidUrls.join(", ")}.` : ""}`,
+      );
+      return;
+    }
+    setBulkInstagramLoading(true);
+    setInstagramError("");
+    const savedItems: InstagramItem[] = [];
+    const failedUrls: string[] = [];
+    try {
+      for (const url of urlsToSave) {
+        try {
+          const preview = await resolveInstagramUrl(url);
+          const canonicalUrl = canonicalInstagramUrl(url);
+          const places = detectInstagramPlaces(preview).map((place) => place.english);
+          const tags = detectInstagramTags(preview);
+          const savedId = await saveJourneyInstagramItem(
+            session,
+            JSON.stringify({
+              url,
+              title: preview.title,
+              description: preview.description,
+              author: preview.author,
+              thumbnailUrl: preview.thumbnailUrl,
+              location: preview.location,
+              places,
+              tags,
+            }),
+            canonicalUrl,
+          );
+          savedItems.push({
+            id: savedId ?? undefined,
+            url,
+            title: preview.title,
+            description: preview.description,
+            author: preview.author,
+            thumbnailUrl: preview.thumbnailUrl,
+            places,
+            tags,
+          });
+          void recordAuditEvent(session, "added_instagram", {
+            title: preview.title,
+            url,
+          }).catch((e) => setError((e as Error).message));
+        } catch (e) {
+          const reason = e instanceof Error ? e.message : String(e);
+          failedUrls.push(`${url} (${reason})`);
+        }
+      }
+      if (savedItems.length) {
+        setInstagramLibrary((current) => [...current, ...savedItems]);
+        showToast(
+          `${savedItems.length} video${savedItems.length === 1 ? "" : "s"} added to your journey library`,
+        );
+      }
+      const summary = [
+        `${savedItems.length} added`,
+        duplicateCount ? `${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"} skipped` : "",
+        invalidUrls.length ? `${invalidUrls.length} invalid link${invalidUrls.length === 1 ? "" : "s"} ignored` : "",
+        failedUrls.length ? `${failedUrls.length} failed to save` : "",
+      ].filter(Boolean).join("; ");
+      setInstagramError(
+        failedUrls.length || invalidUrls.length
+          ? `${summary}.${failedUrls.length ? ` Failed: ${failedUrls.join(", ")}` : ""}${invalidUrls.length ? ` Invalid: ${invalidUrls.join(", ")}` : ""}`
+          : "",
+      );
+      if (!failedUrls.length && !invalidUrls.length) {
+        setBulkInstagramUrls("");
+        setInstagramLibraryMode(false);
+        setInstagramDay(null);
+      }
+    } finally {
+      setBulkInstagramLoading(false);
+    }
+  };
   const toggleInstagramPlace = (place: JapanPlace) => {
     setInstagramPlaces((current) =>
       current.includes(place.english)
@@ -1159,33 +1300,11 @@ export default function App() {
   };
   const instagramDetectedPlaces = useMemo(() => {
     if (!instagramPreview) return [];
-    const metadata = [
-      instagramPreview.title,
-      instagramPreview.author,
-      instagramPreview.description,
-      instagramPreview.location,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLocaleLowerCase();
-    return japanPlaces.filter((place) =>
-      placeSearchTerms(place).some((term) => metadata.includes(term.toLocaleLowerCase())),
-    );
+    return detectInstagramPlaces(instagramPreview);
   }, [instagramPreview]);
   const instagramDetectedTags = useMemo(() => {
     if (!instagramPreview) return [];
-    const metadata = [
-      instagramPreview.title,
-      instagramPreview.author,
-      instagramPreview.description,
-      instagramPreview.location,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLocaleLowerCase();
-    return Object.entries(instagramAutoTagKeywords)
-      .filter(([, keywords]) => keywords.some((keyword) => metadata.includes(keyword.toLocaleLowerCase())))
-      .map(([tag]) => tag);
+    return detectInstagramTags(instagramPreview);
   }, [instagramPreview]);
   const saveInstagram = async () => {
     const index = instagramDay;
@@ -2725,21 +2844,78 @@ export default function App() {
               Paste a public Instagram post or Reel. We’ll check the link and
               show you how it will appear {instagramLibraryMode ? "in your journey library" : "on this day"}.
             </p>
-            <label>
-              Instagram URL
-              <input
-                autoFocus
-                type="url"
-                placeholder="https://www.instagram.com/reel/..."
-                value={instagramUrl}
-                onChange={(e) => {
-                  setInstagramUrl(e.target.value);
-                  setInstagramPreview(null);
-                  setInstagramError("");
-                }}
-              />
-            </label>
-            {instagramError && <p className="form-error">{instagramError}</p>}
+            {instagramLibraryMode && !editingInstagram && (
+              <div className="instagram-add-modes" aria-label="Add videos">
+                <button
+                  type="button"
+                  className={!bulkInstagramMode ? "secondary selected" : "secondary"}
+                  aria-pressed={!bulkInstagramMode}
+                  onClick={() => {
+                    setBulkInstagramMode(false);
+                    setInstagramError("");
+                  }}
+                >
+                  One link
+                </button>
+                <button
+                  type="button"
+                  className={bulkInstagramMode ? "secondary selected" : "secondary"}
+                  aria-pressed={bulkInstagramMode}
+                  onClick={() => {
+                    setBulkInstagramMode(true);
+                    setInstagramError("");
+                  }}
+                >
+                  Multiple links
+                </button>
+              </div>
+            )}
+            {bulkInstagramMode ? (
+              <>
+                <label>
+                  Instagram video URLs
+                  <textarea
+                    autoFocus
+                    className="bulk-instagram-urls"
+                    placeholder={"Paste multiple Instagram links, separated by spaces or new lines\nhttps://www.instagram.com/reel/...\nhttps://www.instagram.com/p/..."}
+                    value={bulkInstagramUrls}
+                    onChange={(event) => {
+                      setBulkInstagramUrls(event.target.value);
+                      setInstagramError("");
+                    }}
+                    rows={7}
+                  />
+                </label>
+                <p className="bulk-instagram-hint">
+                  Videos will be added to your journey library. Links already in the journey are skipped.
+                </p>
+                {instagramError && <p className="form-error">{instagramError}</p>}
+                <button
+                  className="primary full"
+                  type="button"
+                  onClick={() => void saveBulkInstagram()}
+                  disabled={bulkInstagramLoading}
+                >
+                  {bulkInstagramLoading ? "Adding videos…" : "Add videos to library ✦"}
+                </button>
+              </>
+            ) : (
+              <>
+                <label>
+                  Instagram URL
+                  <input
+                    autoFocus
+                    type="url"
+                    placeholder="https://www.instagram.com/reel/..."
+                    value={instagramUrl}
+                    onChange={(e) => {
+                      setInstagramUrl(e.target.value);
+                      setInstagramPreview(null);
+                      setInstagramError("");
+                    }}
+                  />
+                </label>
+                {instagramError && <p className="form-error">{instagramError}</p>}
             {instagramPreview ? (
               <div className="instagram-tag-picker" aria-label="Potential place tags">
                 <small>Potential place tags</small>
@@ -2900,6 +3076,8 @@ export default function App() {
                   ? "Save to journey library ✦"
                   : "Save to this day ✦"}
             </button>
+              </>
+            )}
           </div>
         </div>
       )}

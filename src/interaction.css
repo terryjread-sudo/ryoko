@@ -843,6 +843,31 @@
   overflow-y: auto;
 }
 
+.instagram-add-modes {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.instagram-add-modes .selected {
+  background: #eee5f7;
+  border-color: #b8a6cb;
+}
+
+.bulk-instagram-urls {
+  display: block;
+  min-height: 150px;
+  resize: vertical;
+  width: 100%;
+}
+
+.bulk-instagram-hint {
+  color: #8f7d7e;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 8px 0 12px;
+}
+
 .instagram-preview {
   align-items: flex-start;
   display: flex;
