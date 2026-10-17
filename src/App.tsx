@@ -28,7 +28,11 @@ import {
   type InstagramVote,
   type InstagramVoteSummary,
 } from "./lib/ryoko";
-import { resolveInstagramUrl, type InstagramPreview } from "./lib/instagram";
+import {
+  resolveInstagramUrl,
+  resolveInstagramUrlWithRetry,
+  type InstagramPreview,
+} from "./lib/instagram";
 import { supabase } from "./lib/supabase";
 import {
   deleteAdminPlan,
@@ -1370,7 +1374,10 @@ export default function App() {
       while (nextIndex < items.length) {
         const item = items[nextIndex++];
         try {
-          const preview = await resolveInstagramUrl(item.url);
+          const preview = await resolveInstagramUrlWithRetry(item.url);
+          if (preview.fallback) {
+            throw new Error(preview.error ?? "Instagram did not return usable metadata.");
+          }
           const hasPreviewMetadata = !preview.fallback;
           const refreshedItem: InstagramItem = {
             ...item,
@@ -1403,12 +1410,15 @@ export default function App() {
         } finally {
           completed += 1;
           setRefreshLibraryProgress({ completed, total: items.length });
+          if (nextIndex < items.length) {
+            await new Promise((resolve) => window.setTimeout(resolve, 800));
+          }
         }
       }
     };
     try {
       await Promise.all(
-        Array.from({ length: Math.min(4, items.length) }, () => refreshNext()),
+        Array.from({ length: Math.min(2, items.length) }, () => refreshNext()),
       );
       if (refreshedItems.length) {
         const refreshedByUrl = new Map(
