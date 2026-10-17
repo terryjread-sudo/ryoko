@@ -1539,6 +1539,34 @@ export default function App() {
     setDays([]);
     setModal("start");
   };
+  const deleteJourneyAsAdmin = async (plan: AccountPlan) => {
+    if (!window.confirm(`Permanently delete ${plan.name}?`)) return;
+    try {
+      await deleteAdminPlan(plan.trip_id);
+      setAdminPlans((items) =>
+        items.filter((item) => item.trip_id !== plan.trip_id),
+      );
+      setAccountPlans((items) =>
+        items.filter((item) => item.trip_id !== plan.trip_id),
+      );
+      if (adminMembersPlan?.trip_id === plan.trip_id) {
+        setAdminMembersPlan(null);
+        setAdminMembers([]);
+      }
+      if (session?.tripId !== plan.trip_id) return;
+      startOver();
+      setJourneyName("Your Japan journey");
+      setInstagramLibrary([]);
+      setInstagramVotes({});
+      setCollaborators([]);
+      setOnline(0);
+      setTotalMembers(0);
+      setAdminModal(false);
+      setError(`${plan.name} was permanently deleted. Choose or create another journey.`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   return (
     <main className="shell">
@@ -2512,20 +2540,7 @@ export default function App() {
                             )}
                             <button
                               className="delete-plan"
-                              onClick={async () => {
-                                if (
-                                  !window.confirm(
-                                    `Permanently delete ${plan.name}?`,
-                                  )
-                                )
-                                  return;
-                                await deleteAdminPlan(plan.trip_id);
-                                setAdminPlans((items) =>
-                                  items.filter(
-                                    (item) => item.trip_id !== plan.trip_id,
-                                  ),
-                                );
-                              }}
+                              onClick={() => void deleteJourneyAsAdmin(plan)}
                             >
                               Delete
                             </button>
@@ -2642,14 +2657,7 @@ export default function App() {
                   </button>
                   <button
                     className="delete-plan"
-                    onClick={async () => {
-                      if (!window.confirm(`Permanently delete ${plan.name}?`))
-                        return;
-                      await deleteAdminPlan(plan.trip_id);
-                      setAdminPlans((items) =>
-                        items.filter((item) => item.trip_id !== plan.trip_id),
-                      );
-                    }}
+                    onClick={() => void deleteJourneyAsAdmin(plan)}
                   >
                     Delete
                   </button>
