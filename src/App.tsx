@@ -683,6 +683,7 @@ export default function App() {
   const [instagramDay, setInstagramDay] = useState<number | null>(null);
   const [instagramLibraryMode, setInstagramLibraryMode] = useState(false);
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
+  const [instagramLibraryTagFilter, setInstagramLibraryTagFilter] = useState("");
   const [instagramVotes, setInstagramVotes] = useState<Record<string, InstagramVoteSummary>>({});
   const [confirmInstagramDelete, setConfirmInstagramDelete] = useState<InstagramItem | null>(null);
   const [refreshLibraryPrompt, setRefreshLibraryPrompt] = useState(false);
@@ -1173,6 +1174,36 @@ export default function App() {
       setInstagramLoading(false);
     }
   };
+  const refreshEditedInstagramMetadata = async () => {
+    if (!editingInstagram || instagramLoading) return;
+    setInstagramLoading(true);
+    setInstagramError("");
+    try {
+      const preview = await resolveInstagramUrlWithRetry(instagramUrl);
+      if (preview.fallback) {
+        throw new Error(preview.error ?? "Instagram did not return usable metadata.");
+      }
+      setInstagramPreview((current) => ({
+        ...preview,
+        title: preview.title === "Saved from Instagram" ? current?.title ?? preview.title : preview.title,
+        description: preview.description || current?.description,
+        author: preview.author === "Instagram link" ? current?.author ?? preview.author : preview.author,
+        thumbnailUrl: preview.thumbnailUrl || current?.thumbnailUrl,
+      }));
+      setInstagramPlaces((current) => [...new Set([
+        ...current,
+        ...detectInstagramPlaces(preview).map((place) => place.english),
+      ])]);
+      setInstagramTags((current) => [...new Set([
+        ...current,
+        ...detectInstagramTags(preview),
+      ])]);
+    } catch (e) {
+      setInstagramError((e as Error).message || "We couldn't refresh this video's details.");
+    } finally {
+      setInstagramLoading(false);
+    }
+  };
   const previewInstagram = async () => {
     const value = instagramUrl.trim();
     if (!/^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\//i.test(value)) {
@@ -1355,6 +1386,21 @@ export default function App() {
       item.author === "Instagram link",
     ),
     [instagramLibrary],
+  );
+  const instagramLibraryTags = useMemo(
+    () => [...new Set(instagramLibrary.flatMap((item) => [
+      ...(item.tags ?? []),
+      ...(item.places ?? []),
+    ]))].sort((a, b) => a.localeCompare(b)),
+    [instagramLibrary],
+  );
+  const filteredInstagramLibrary = useMemo(
+    () => instagramLibraryTagFilter
+      ? instagramLibrary.filter((item) =>
+          [...(item.tags ?? []), ...(item.places ?? [])].includes(instagramLibraryTagFilter),
+        )
+      : instagramLibrary,
+    [instagramLibrary, instagramLibraryTagFilter],
   );
   const refreshInstagramLibrary = async () => {
     if (!session || refreshLibraryLoading) return;
@@ -2419,8 +2465,24 @@ export default function App() {
             {!instagramLibrary.length ? (
               <p className="empty-hint">Save videos here first, then send them to a dated day when you are ready.</p>
             ) : (
+              <>
+                {instagramLibraryTags.length > 0 && (
+                  <label className="instagram-library-filter">
+                    Filter videos by tag
+                    <select
+                      value={instagramLibraryTagFilter}
+                      onChange={(event) => setInstagramLibraryTagFilter(event.target.value)}
+                    >
+                      <option value="">All tags</option>
+                      {instagramLibraryTags.map((tag) => (
+                        <option key={tag} value={tag}>#{tag}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {filteredInstagramLibrary.length ? (
               <div className="instagram-items">
-                {instagramLibrary.map((item) => (
+                {filteredInstagramLibrary.map((item) => (
                   <article className="instagram-item" key={item.id ?? item.url}>
                     <div
                       className={`instagram-card-content ${revealedInstagramCards.has(item.id ?? item.url) ? "details-revealed" : "details-hidden"}`}
@@ -2462,6 +2524,10 @@ export default function App() {
                   </article>
                 ))}
               </div>
+                ) : (
+                  <p className="empty-hint">No videos have the #{instagramLibraryTagFilter} tag.</p>
+                )}
+              </>
             )}
           </section>
         </aside>
@@ -3097,6 +3163,16 @@ export default function App() {
                     }}
                   />
                 </label>
+                {editingInstagram && (
+                  <button
+                    className="secondary full instagram-edit-refresh"
+                    type="button"
+                    onClick={() => void refreshEditedInstagramMetadata()}
+                    disabled={instagramLoading}
+                  >
+                    {instagramLoading ? "Refreshing video details…" : "↻ Refresh metadata and tags"}
+                  </button>
+                )}
                 {instagramError && <p className="form-error">{instagramError}</p>}
             {instagramPreview ? (
               <div className="instagram-tag-picker" aria-label="Potential place tags">

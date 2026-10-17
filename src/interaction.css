@@ -853,6 +853,24 @@
   padding: 6px;
 }
 
+.instagram-library-filter {
+  align-items: center;
+  color: #806f6a;
+  display: flex;
+  font-size: 0.76rem;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.instagram-library-filter select {
+  flex: 1;
+  min-width: 0;
+}
+
+.instagram-edit-refresh {
+  margin-top: 10px;
+}
+
 .library-refresh-button:not(:disabled):hover span {
   transform: rotate(45deg);
 }
