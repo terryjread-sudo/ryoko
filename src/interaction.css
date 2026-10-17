@@ -837,6 +837,35 @@
   padding: 8px 10px;
 }
 
+.library-header-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.library-heading .library-refresh-button {
+  font-size: 1.1rem;
+  justify-content: center;
+  line-height: 1;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 6px;
+}
+
+.library-refresh-button:not(:disabled):hover span {
+  transform: rotate(45deg);
+}
+
+.library-refresh-button span {
+  display: inline-block;
+  transition: transform 180ms ease;
+}
+
+.instagram-refresh-modal {
+  max-width: 430px;
+}
+
 .instagram-modal {
   max-height: calc(100vh - 32px);
   max-width: 460px;

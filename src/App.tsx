@@ -681,6 +681,10 @@ export default function App() {
   const [instagramLibrary, setInstagramLibrary] = useState<InstagramItem[]>([]);
   const [instagramVotes, setInstagramVotes] = useState<Record<string, InstagramVoteSummary>>({});
   const [confirmInstagramDelete, setConfirmInstagramDelete] = useState<InstagramItem | null>(null);
+  const [refreshLibraryPrompt, setRefreshLibraryPrompt] = useState(false);
+  const [refreshLibraryLoading, setRefreshLibraryLoading] = useState(false);
+  const [refreshLibraryProgress, setRefreshLibraryProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [refreshLibraryMessage, setRefreshLibraryMessage] = useState("");
   const [moveLibraryItem, setMoveLibraryItem] = useState<InstagramItem | null>(null);
   const [playingInstagram, setPlayingInstagram] = useState<InstagramItem | null>(null);
   const [expandedInstagramCaptions, setExpandedInstagramCaptions] = useState<Set<string>>(new Set());
@@ -1337,6 +1341,103 @@ export default function App() {
     if (!instagramPreview) return [];
     return detectInstagramTags(instagramPreview);
   }, [instagramPreview]);
+  const libraryItemsNeedingRefresh = useMemo(
+    () => instagramLibrary.filter((item) =>
+      !item.thumbnailUrl ||
+      (!item.places?.length && !item.tags?.length) ||
+      !item.title ||
+      item.title === "Saved from Instagram" ||
+      !item.author ||
+      item.author === "Instagram link",
+    ),
+    [instagramLibrary],
+  );
+  const refreshInstagramLibrary = async () => {
+    if (!session || refreshLibraryLoading) return;
+    const items = libraryItemsNeedingRefresh;
+    if (!items.length) {
+      setRefreshLibraryPrompt(false);
+      return;
+    }
+    setRefreshLibraryLoading(true);
+    setRefreshLibraryMessage("");
+    setRefreshLibraryProgress({ completed: 0, total: items.length });
+    const refreshedItems: InstagramItem[] = [];
+    const failedItems: string[] = [];
+    let nextIndex = 0;
+    let completed = 0;
+    const refreshNext = async () => {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex++];
+        try {
+          const preview = await resolveInstagramUrl(item.url);
+          const hasPreviewMetadata = !preview.fallback;
+          const refreshedItem: InstagramItem = {
+            ...item,
+            title: hasPreviewMetadata && preview.title !== "Saved from Instagram"
+              ? preview.title
+              : item.title,
+            description: item.description || preview.description,
+            author: hasPreviewMetadata && preview.author !== "Instagram link"
+              ? preview.author
+              : item.author,
+            thumbnailUrl: preview.thumbnailUrl || item.thumbnailUrl,
+            places: [...new Set([
+              ...(item.places ?? []),
+              ...detectInstagramPlaces(preview).map((place) => place.english),
+            ])],
+            tags: [...new Set([
+              ...(item.tags ?? []),
+              ...detectInstagramTags(preview),
+            ])],
+          };
+          const savedId = await saveJourneyInstagramItem(
+            session,
+            JSON.stringify(refreshedItem),
+            canonicalInstagramUrl(item.url),
+          );
+          refreshedItems.push({ ...refreshedItem, id: savedId ?? item.id });
+        } catch (e) {
+          const reason = e instanceof Error ? e.message : String(e);
+          failedItems.push(`${item.url} (${reason})`);
+        } finally {
+          completed += 1;
+          setRefreshLibraryProgress({ completed, total: items.length });
+        }
+      }
+    };
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(4, items.length) }, () => refreshNext()),
+      );
+      if (refreshedItems.length) {
+        const refreshedByUrl = new Map(
+          refreshedItems.map((item) => [canonicalInstagramUrl(item.url), item]),
+        );
+        setInstagramLibrary((current) =>
+          current.map((item) =>
+            refreshedByUrl.get(canonicalInstagramUrl(item.url)) ?? item,
+          ),
+        );
+        try {
+          await recordAuditEvent(session, "refreshed_instagram_library", {
+            count: refreshedItems.length,
+          });
+        } catch (e) {
+          setError((e as Error).message);
+        }
+      }
+      const summary = `${refreshedItems.length} video${refreshedItems.length === 1 ? "" : "s"} refreshed`;
+      setRefreshLibraryMessage(
+        failedItems.length
+          ? `${summary}; ${failedItems.length} could not be refreshed. ${failedItems.slice(0, 3).join(", ")}${failedItems.length > 3 ? `, and ${failedItems.length - 3} more` : ""}`
+          : `${summary}.`,
+      );
+    } finally {
+      setRefreshLibraryLoading(false);
+      setRefreshLibraryProgress(null);
+    }
+  };
   const saveInstagram = async () => {
     const index = instagramDay;
     const day = index === null ? undefined : days[index];
@@ -2285,10 +2386,25 @@ export default function App() {
                 <p className="eyebrow">JOURNEY INSPIRATION</p>
                 <h3 id="instagram-library-title">Instagram <em>library</em></h3>
               </div>
-              <button className="secondary" onClick={openInstagramLibrary} disabled={!session}>
-                <InstagramGlyph />
-                <span>Add video</span>
-              </button>
+              <div className="library-header-actions">
+                <button
+                  className="secondary library-refresh-button"
+                  type="button"
+                  title={`${libraryItemsNeedingRefresh.length} videos need tags, images, or details`}
+                  aria-label={`Refresh missing video details; ${libraryItemsNeedingRefresh.length} videos need attention`}
+                  disabled={!session || !libraryItemsNeedingRefresh.length || refreshLibraryLoading}
+                  onClick={() => {
+                    setRefreshLibraryMessage("");
+                    setRefreshLibraryPrompt(true);
+                  }}
+                >
+                  <span aria-hidden="true">↻</span>
+                </button>
+                <button className="secondary" onClick={openInstagramLibrary} disabled={!session}>
+                  <InstagramGlyph />
+                  <span>Add video</span>
+                </button>
+              </div>
             </div>
             {!instagramLibrary.length ? (
               <p className="empty-hint">Save videos here first, then send them to a dated day when you are ready.</p>
@@ -3178,6 +3294,83 @@ export default function App() {
               <button className="secondary" type="button" onClick={() => setConfirmInstagramDelete(null)}>Cancel</button>
               <button className="primary" type="button" onClick={() => void deleteConfirmedInstagramLibraryItem()}>Remove video</button>
             </div>
+          </div>
+        </div>
+      )}
+      {refreshLibraryPrompt && (
+        <div
+          className="backdrop"
+          onClick={() => {
+            if (!refreshLibraryLoading) setRefreshLibraryPrompt(false);
+          }}
+        >
+          <div
+            className="modal instagram-refresh-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="instagram-refresh-title"
+          >
+            {!refreshLibraryLoading && (
+              <button
+                className="close"
+                type="button"
+                onClick={() => setRefreshLibraryPrompt(false)}
+                aria-label="Close video refresh"
+              >
+                ×
+              </button>
+            )}
+            <span className="flower">↻</span>
+            <p className="eyebrow">JOURNEY LIBRARY</p>
+            <h2 id="instagram-refresh-title">
+              Refresh video <em>details?</em>
+            </h2>
+            {refreshLibraryLoading && refreshLibraryProgress ? (
+              <div className="bulk-instagram-progress" role="status" aria-live="polite">
+                <span>
+                  Refreshing {refreshLibraryProgress.completed} of {refreshLibraryProgress.total} videos…
+                </span>
+                <progress
+                  max={refreshLibraryProgress.total}
+                  value={refreshLibraryProgress.completed}
+                />
+              </div>
+            ) : refreshLibraryMessage ? (
+              <>
+                <p className="modal-copy" role="status">{refreshLibraryMessage}</p>
+                <button
+                  className="primary full"
+                  type="button"
+                  onClick={() => setRefreshLibraryPrompt(false)}
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="modal-copy">
+                  {libraryItemsNeedingRefresh.length} {libraryItemsNeedingRefresh.length === 1 ? "video is" : "videos are"} missing tags, a thumbnail, or basic details. Try to fill in what’s missing now?
+                </p>
+                <div className="instagram-delete-actions">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => setRefreshLibraryPrompt(false)}
+                  >
+                    Not now
+                  </button>
+                  <button
+                    className="primary"
+                    type="button"
+                    onClick={() => void refreshInstagramLibrary()}
+                    disabled={!libraryItemsNeedingRefresh.length}
+                  >
+                    Refresh videos
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
