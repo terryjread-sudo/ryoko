@@ -868,6 +868,22 @@
   margin: 8px 0 12px;
 }
 
+.bulk-instagram-progress {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.bulk-instagram-progress span {
+  color: #6f6264;
+  font-size: 0.8rem;
+}
+
+.bulk-instagram-progress progress {
+  accent-color: #ad5e63;
+  width: 100%;
+}
+
 .instagram-preview {
   align-items: flex-start;
   display: flex;

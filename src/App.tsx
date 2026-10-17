@@ -693,6 +693,10 @@ export default function App() {
   const [bulkInstagramMode, setBulkInstagramMode] = useState(false);
   const [bulkInstagramUrls, setBulkInstagramUrls] = useState("");
   const [bulkInstagramLoading, setBulkInstagramLoading] = useState(false);
+  const [bulkInstagramProgress, setBulkInstagramProgress] = useState<{
+    completed: number;
+    total: number;
+  } | null>(null);
   const [instagramPreview, setInstagramPreview] =
     useState<InstagramPreview | null>(null);
   const [instagramLoading, setInstagramLoading] = useState(false);
@@ -1124,6 +1128,7 @@ export default function App() {
     setBulkInstagramMode(false);
     setBulkInstagramUrls("");
     setBulkInstagramLoading(false);
+    setBulkInstagramProgress(null);
     setInstagramPreview(null);
     setInstagramError("");
     setInstagramPlaces([]);
@@ -1215,51 +1220,69 @@ export default function App() {
       return;
     }
     setBulkInstagramLoading(true);
+    setBulkInstagramProgress({ completed: 0, total: urlsToSave.length });
     setInstagramError("");
     const savedItems: InstagramItem[] = [];
     const failedUrls: string[] = [];
     try {
-      for (const url of urlsToSave) {
-        try {
-          const preview = await resolveInstagramUrl(url);
-          const canonicalUrl = canonicalInstagramUrl(url);
-          const places = detectInstagramPlaces(preview).map((place) => place.english);
-          const tags = detectInstagramTags(preview);
-          const savedId = await saveJourneyInstagramItem(
-            session,
-            JSON.stringify({
+      let nextIndex = 0;
+      let completed = 0;
+      const importNext = async () => {
+        while (nextIndex < urlsToSave.length) {
+          const url = urlsToSave[nextIndex++];
+          try {
+            const preview = await resolveInstagramUrl(url);
+            const canonicalUrl = canonicalInstagramUrl(url);
+            const places = detectInstagramPlaces(preview).map((place) => place.english);
+            const tags = detectInstagramTags(preview);
+            const savedId = await saveJourneyInstagramItem(
+              session,
+              JSON.stringify({
+                url,
+                title: preview.title,
+                description: preview.description,
+                author: preview.author,
+                thumbnailUrl: preview.thumbnailUrl,
+                location: preview.location,
+                places,
+                tags,
+              }),
+              canonicalUrl,
+            );
+            savedItems.push({
+              id: savedId ?? undefined,
               url,
               title: preview.title,
               description: preview.description,
               author: preview.author,
               thumbnailUrl: preview.thumbnailUrl,
-              location: preview.location,
               places,
               tags,
-            }),
-            canonicalUrl,
-          );
-          savedItems.push({
-            id: savedId ?? undefined,
-            url,
-            title: preview.title,
-            description: preview.description,
-            author: preview.author,
-            thumbnailUrl: preview.thumbnailUrl,
-            places,
-            tags,
-          });
-          void recordAuditEvent(session, "added_instagram", {
-            title: preview.title,
-            url,
-          }).catch((e) => setError((e as Error).message));
-        } catch (e) {
-          const reason = e instanceof Error ? e.message : String(e);
-          failedUrls.push(`${url} (${reason})`);
+            });
+          } catch (e) {
+            const reason = e instanceof Error ? e.message : String(e);
+            failedUrls.push(`${url} (${reason})`);
+          } finally {
+            completed += 1;
+            setBulkInstagramProgress({ completed, total: urlsToSave.length });
+          }
         }
-      }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(4, urlsToSave.length) },
+          () => importNext(),
+        ),
+      );
       if (savedItems.length) {
         setInstagramLibrary((current) => [...current, ...savedItems]);
+        try {
+          await recordAuditEvent(session, "added_instagram_bulk", {
+            count: savedItems.length,
+          });
+        } catch (e) {
+          setError((e as Error).message);
+        }
         showToast(
           `${savedItems.length} video${savedItems.length === 1 ? "" : "s"} added to your journey library`,
         );
@@ -1270,9 +1293,15 @@ export default function App() {
         invalidUrls.length ? `${invalidUrls.length} invalid link${invalidUrls.length === 1 ? "" : "s"} ignored` : "",
         failedUrls.length ? `${failedUrls.length} failed to save` : "",
       ].filter(Boolean).join("; ");
+      const failedSummary = failedUrls.length
+        ? ` Failed: ${failedUrls.slice(0, 5).join(", ")}${failedUrls.length > 5 ? `, and ${failedUrls.length - 5} more` : ""}`
+        : "";
+      const invalidSummary = invalidUrls.length
+        ? ` Invalid: ${invalidUrls.slice(0, 5).join(", ")}${invalidUrls.length > 5 ? `, and ${invalidUrls.length - 5} more` : ""}`
+        : "";
       setInstagramError(
         failedUrls.length || invalidUrls.length
-          ? `${summary}.${failedUrls.length ? ` Failed: ${failedUrls.join(", ")}` : ""}${invalidUrls.length ? ` Invalid: ${invalidUrls.join(", ")}` : ""}`
+          ? `${summary}.${failedSummary}${invalidSummary}`
           : "",
       );
       if (!failedUrls.length && !invalidUrls.length) {
@@ -1282,6 +1311,7 @@ export default function App() {
       }
     } finally {
       setBulkInstagramLoading(false);
+      setBulkInstagramProgress(null);
     }
   };
   const toggleInstagramPlace = (place: JapanPlace) => {
@@ -2827,12 +2857,23 @@ export default function App() {
         </div>
       )}
       {(instagramDay !== null || instagramLibraryMode) && (
-        <div className="backdrop" onClick={() => { setInstagramDay(null); setInstagramLibraryMode(false); }}>
+        <div
+          className="backdrop"
+          onClick={() => {
+            if (bulkInstagramLoading) return;
+            setInstagramDay(null);
+            setInstagramLibraryMode(false);
+          }}
+        >
           <div
             className="modal instagram-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="close" onClick={() => { setInstagramDay(null); setInstagramLibraryMode(false); }}>
+            <button
+              className="close"
+              disabled={bulkInstagramLoading}
+              onClick={() => { setInstagramDay(null); setInstagramLibraryMode(false); }}
+            >
               ×
             </button>
             <span className="flower">✿</span>
@@ -2850,6 +2891,7 @@ export default function App() {
                   type="button"
                   className={!bulkInstagramMode ? "secondary selected" : "secondary"}
                   aria-pressed={!bulkInstagramMode}
+                  disabled={bulkInstagramLoading}
                   onClick={() => {
                     setBulkInstagramMode(false);
                     setInstagramError("");
@@ -2861,6 +2903,7 @@ export default function App() {
                   type="button"
                   className={bulkInstagramMode ? "secondary selected" : "secondary"}
                   aria-pressed={bulkInstagramMode}
+                  disabled={bulkInstagramLoading}
                   onClick={() => {
                     setBulkInstagramMode(true);
                     setInstagramError("");
@@ -2879,6 +2922,7 @@ export default function App() {
                     className="bulk-instagram-urls"
                     placeholder={"Paste multiple Instagram links, separated by spaces or new lines\nhttps://www.instagram.com/reel/...\nhttps://www.instagram.com/p/..."}
                     value={bulkInstagramUrls}
+                    disabled={bulkInstagramLoading}
                     onChange={(event) => {
                       setBulkInstagramUrls(event.target.value);
                       setInstagramError("");
@@ -2889,6 +2933,17 @@ export default function App() {
                 <p className="bulk-instagram-hint">
                   Videos will be added to your journey library. Links already in the journey are skipped.
                 </p>
+                {bulkInstagramLoading && bulkInstagramProgress && (
+                  <div className="bulk-instagram-progress" role="status" aria-live="polite">
+                    <span>
+                      Checking and adding videos: {bulkInstagramProgress.completed} of {bulkInstagramProgress.total}
+                    </span>
+                    <progress
+                      max={bulkInstagramProgress.total}
+                      value={bulkInstagramProgress.completed}
+                    />
+                  </div>
+                )}
                 {instagramError && <p className="form-error">{instagramError}</p>}
                 <button
                   className="primary full"
