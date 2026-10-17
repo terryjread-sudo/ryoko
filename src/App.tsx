@@ -1148,6 +1148,7 @@ export default function App() {
   const editInstagram = async (item: InstagramItem, dayIndex?: number) => {
     setInstagramDay(dayIndex ?? null);
     setInstagramLibraryMode(dayIndex === undefined);
+    setBulkInstagramMode(false);
     setEditingInstagram(item.id ? { itemId: item.id, dayIndex: dayIndex ?? null } : null);
     setInstagramUrl(item.url);
     setInstagramPreview(null);
